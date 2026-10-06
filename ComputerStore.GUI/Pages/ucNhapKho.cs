@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using ComputerStore.BLL;
 using ComputerStore.DTO;
+using ComputerStore.GUI.Components;
 using ComputerStore.GUI.Forms;
 
 namespace ComputerStore.GUI.Pages;
@@ -45,38 +46,237 @@ public class ucNhapKho : PageBase
         );
         _grid.DataSource = _items;
 
-        var btnAdd = Theme.PrimaryButton("Thêm vào phiếu (nhập serial)", 140, (_, _) => AddItem());
-        btnAdd.Tag = "fill";
-        var btnRemove = Theme.DangerButton("Xóa dòng đang chọn", 90, (_, _) => RemoveItem());
+        // ====================================================
+        // PANEL BÊN PHẢI: FORM NHẬP LIỆU PHIẾU NHẬP (CARD ĐẸP)
+        // ====================================================
+        var editor = new ModernPanel
+        {
+            Dock = DockStyle.Fill,
+            FillColor = Color.White,
+            BorderColor = ColorTranslator.FromHtml("#E2E8F0"),
+            BorderSize = 1,
+            BorderRadius = 10,
+            Padding = new Padding(20, 16, 20, 16),
+            Margin = new Padding(12, 0, 0, 0)
+        };
 
-        var btnNewNcc = Theme.LinkButton("+ Thêm NCC mới", (_, _) => QuickAddNcc()); btnNewNcc.Name = "btnThemNCCNhanh";
-        var btnNewSp = Theme.LinkButton("+ Thêm SP mới", (_, _) => QuickAddSp()); btnNewSp.Name = "btnThemSPNhanh";
-        var editor = EditorCard("Phiếu nhập mới",
-            Theme.Caption("Nhà cung cấp", false), Theme.Row(_cboNCC, btnNewNcc),
-            Theme.Field("Ghi chú phiếu", _txtGhiChu, 320),
-            Theme.Caption("Thêm sản phẩm vào phiếu", false),
-            Theme.Row(_cboSP, btnNewSp),
-            Theme.Pair(Theme.Field("Số lượng *", _txtSoLuong, 120), Theme.Field("Đơn giá nhập (₫) *", _txtDonGia, 160)),
-            btnAdd,
-            Theme.Caption("Mỗi sản phẩm nhập vào phải có số serial riêng để theo dõi bảo hành.")
-        );
+        var flowRight = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            FlowDirection = FlowDirection.TopDown,
+            WrapContents = false,
+            AutoScroll = true,
+            BackColor = Color.Transparent,
+            Padding = new Padding(0)
+        };
 
-        var btnSave = Theme.PrimaryButton("LƯU PHIẾU NHẬP", 200, (_, _) => Save());
-        var pnlLeftBot = new FlowLayoutPanel { Height = 52, Dock = DockStyle.Bottom, FlowDirection = FlowDirection.LeftToRight, Padding = new Padding(0, 8, 0, 0) };
-        btnSave.Margin = new Padding(0, 0, 18, 0); btnRemove.Margin = new Padding(0, 0, 18, 0);
-        _lblTongTien.Margin = new Padding(0, 6, 18, 0);
+        var lblCardTitle = new Label
+        {
+            Text = "Phiếu nhập mới",
+            Font = new Font("Segoe UI", 13f, FontStyle.Bold),
+            ForeColor = ColorTranslator.FromHtml("#0F172A"),
+            AutoSize = true,
+            Margin = new Padding(0, 0, 0, 14)
+        };
+        flowRight.Controls.Add(lblCardTitle);
+
+        // --- KHỐI 1: THÔNG TIN PHIẾU NHẬP ---
+        var pnlSec1Header = new Label
+        {
+            Text = "THÔNG TIN PHIẾU NHẬP",
+            Font = new Font("Segoe UI", 8.5f, FontStyle.Bold),
+            ForeColor = ColorTranslator.FromHtml("#64748B"),
+            AutoSize = true,
+            Margin = new Padding(0, 0, 0, 8)
+        };
+        flowRight.Controls.Add(pnlSec1Header);
+
+        // Trường Nhà cung cấp: [Nhà cung cấp *]              [+ Thêm NCC]
+        var pnlNccHeader = new Panel { Width = 368, Height = 22, Margin = new Padding(0, 0, 0, 4), BackColor = Color.Transparent };
+        var lblNcc = new Label { Text = "Nhà cung cấp *", Font = Theme.Small, ForeColor = Theme.Text, AutoSize = true, Dock = DockStyle.Left, TextAlign = ContentAlignment.BottomLeft };
+        var btnNewNcc = Theme.LinkButton("+ Thêm NCC", (_, _) => QuickAddNcc());
+        btnNewNcc.Name = "btnThemNCCNhanh";
+        btnNewNcc.Dock = DockStyle.Right;
+        pnlNccHeader.Controls.Add(lblNcc);
+        pnlNccHeader.Controls.Add(btnNewNcc);
+        flowRight.Controls.Add(pnlNccHeader);
+
+        _cboNCC.Width = 368;
+        _cboNCC.Height = 32;
+        _cboNCC.Font = new Font("Segoe UI", 10f);
+        _cboNCC.Margin = new Padding(0, 0, 0, 12);
+        flowRight.Controls.Add(_cboNCC);
+
+        // Trường Ghi chú: [Ghi chú phiếu:]
+        var lblGhiChu = new Label { Text = "Ghi chú phiếu:", Font = Theme.Small, ForeColor = Theme.Text, AutoSize = true, Margin = new Padding(0, 0, 0, 4) };
+        _txtGhiChu.Width = 368;
+        _txtGhiChu.Font = new Font("Segoe UI", 10f);
+        _txtGhiChu.BorderStyle = BorderStyle.FixedSingle;
+        _txtGhiChu.PlaceholderText = "Nhập ghi chú phiếu nhập (tùy chọn)...";
+        _txtGhiChu.Margin = new Padding(0, 0, 0, 16);
+        flowRight.Controls.Add(lblGhiChu);
+        flowRight.Controls.Add(_txtGhiChu);
+
+        // Đường phân cách nhẹ giữa 2 khối
+        var divider = new Panel
+        {
+            Width = 368,
+            Height = 1,
+            BackColor = ColorTranslator.FromHtml("#E2E8F0"),
+            Margin = new Padding(0, 0, 0, 16)
+        };
+        flowRight.Controls.Add(divider);
+
+        // --- KHỐI 2: THÊM SẢN PHẨM VÀO PHIẾU ---
+        var pnlSec2Header = new Label
+        {
+            Text = "THÊM LINH KIỆN VÀO PHIẾU",
+            Font = new Font("Segoe UI", 8.5f, FontStyle.Bold),
+            ForeColor = ColorTranslator.FromHtml("#64748B"),
+            AutoSize = true,
+            Margin = new Padding(0, 0, 0, 8)
+        };
+        flowRight.Controls.Add(pnlSec2Header);
+
+        // Trường Sản phẩm: [Chọn linh kiện *]                 [+ Thêm SP]
+        var pnlSpHeader = new Panel { Width = 368, Height = 22, Margin = new Padding(0, 0, 0, 4), BackColor = Color.Transparent };
+        var lblSp = new Label { Text = "Chọn linh kiện *", Font = Theme.Small, ForeColor = Theme.Text, AutoSize = true, Dock = DockStyle.Left, TextAlign = ContentAlignment.BottomLeft };
+        var btnNewSp = Theme.LinkButton("+ Thêm SP", (_, _) => QuickAddSp());
+        btnNewSp.Name = "btnThemSPNhanh";
+        btnNewSp.Dock = DockStyle.Right;
+        pnlSpHeader.Controls.Add(lblSp);
+        pnlSpHeader.Controls.Add(btnNewSp);
+        flowRight.Controls.Add(pnlSpHeader);
+
+        _cboSP.Width = 368;
+        _cboSP.Height = 32;
+        _cboSP.Font = new Font("Segoe UI", 10f);
+        _cboSP.Margin = new Padding(0, 0, 0, 12);
+        flowRight.Controls.Add(_cboSP);
+
+        // Cặp ô: Số lượng & Đơn giá nhập
+        var tblPair = new TableLayoutPanel
+        {
+            Width = 368,
+            Height = 60,
+            ColumnCount = 2,
+            RowCount = 2,
+            Margin = new Padding(0, 0, 0, 16),
+            BackColor = Color.Transparent
+        };
+        tblPair.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 42f));
+        tblPair.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 58f));
+        tblPair.RowStyles.Add(new RowStyle(SizeType.Absolute, 22f));
+        tblPair.RowStyles.Add(new RowStyle(SizeType.Absolute, 34f));
+
+        var lblSl = new Label { Text = "Số lượng *", Font = Theme.Small, ForeColor = Theme.Text, AutoSize = true, Dock = DockStyle.Fill, TextAlign = ContentAlignment.BottomLeft };
+        var lblDg = new Label { Text = "Đơn giá nhập (₫) *", Font = Theme.Small, ForeColor = Theme.Text, AutoSize = true, Dock = DockStyle.Fill, TextAlign = ContentAlignment.BottomLeft };
+
+        _txtSoLuong.Dock = DockStyle.Fill;
+        _txtSoLuong.Font = new Font("Segoe UI", 10f);
+        _txtSoLuong.BorderStyle = BorderStyle.FixedSingle;
+        _txtSoLuong.TextAlign = HorizontalAlignment.Right;
+        _txtSoLuong.Margin = new Padding(0, 0, 6, 0);
+
+        _txtDonGia.Dock = DockStyle.Fill;
+        _txtDonGia.Font = new Font("Segoe UI", 10f);
+        _txtDonGia.BorderStyle = BorderStyle.FixedSingle;
+        _txtDonGia.TextAlign = HorizontalAlignment.Right;
+        _txtDonGia.Margin = new Padding(6, 0, 0, 0);
+
+        tblPair.Controls.Add(lblSl, 0, 0);
+        tblPair.Controls.Add(lblDg, 1, 0);
+        tblPair.Controls.Add(_txtSoLuong, 0, 1);
+        tblPair.Controls.Add(_txtDonGia, 1, 1);
+        flowRight.Controls.Add(tblPair);
+
+        // Nút Thêm vào phiếu: Chiều rộng 100%, Chiều cao 42px, Font Đậm, Không bị cắt chữ
+        var btnAdd = new ModernButton
+        {
+            Text = "+ THÊM VÀO PHIẾU (NHẬP SERIAL)",
+            Width = 368,
+            Height = 42,
+            BorderRadius = 8,
+            NormalColor = ColorTranslator.FromHtml("#2563EB"),
+            HoverColor = ColorTranslator.FromHtml("#1D4ED8"),
+            ForeColor = Color.White,
+            Font = new Font("Segoe UI", 10f, FontStyle.Bold),
+            Cursor = Cursors.Hand,
+            Margin = new Padding(0, 0, 0, 12)
+        };
+        btnAdd.Click += (_, _) => AddItem();
+        flowRight.Controls.Add(btnAdd);
+
+        // Hộp chú thích bo góc về Serial
+        var pnlNote = new ModernPanel
+        {
+            Width = 368,
+            Height = 52,
+            FillColor = ColorTranslator.FromHtml("#F8FAFC"),
+            BorderColor = ColorTranslator.FromHtml("#E2E8F0"),
+            BorderSize = 1,
+            BorderRadius = 6,
+            Padding = new Padding(10, 8, 10, 8),
+            Margin = new Padding(0)
+        };
+        var lblNote = new Label
+        {
+            Text = "💡 Mỗi sản phẩm nhập kho bắt buộc có số serial riêng tương ứng với số lượng để theo dõi bảo hành.",
+            Font = new Font("Segoe UI", 8.5f),
+            ForeColor = ColorTranslator.FromHtml("#64748B"),
+            Dock = DockStyle.Fill,
+            TextAlign = ContentAlignment.MiddleLeft
+        };
+        pnlNote.Controls.Add(lblNote);
+        flowRight.Controls.Add(pnlNote);
+
+        // Tự động kéo rộng các controls theo bề ngang khung
+        flowRight.SizeChanged += (_, _) =>
+        {
+            var w = Math.Max(300, flowRight.ClientSize.Width - 12);
+            pnlNccHeader.Width = w;
+            _cboNCC.Width = w;
+            _txtGhiChu.Width = w;
+            divider.Width = w;
+            pnlSpHeader.Width = w;
+            _cboSP.Width = w;
+            tblPair.Width = w;
+            btnAdd.Width = w;
+            pnlNote.Width = w;
+        };
+
+        editor.Controls.Add(flowRight);
+
+        // ====================================================
+        // PANEL BÊN DƯỚI: NÚT THAO TÁC & TỔNG TIỀN PHIẾU
+        // ====================================================
+        var btnRemove = Theme.DangerButton("Xóa dòng đang chọn", 160, (_, _) => RemoveItem());
+        var btnSave = Theme.PrimaryButton("LƯU PHIẾU NHẬP", 180, (_, _) => Save());
+        var btnLichSu = Theme.GhostButton("Lịch sử nhập kho", 150, (_, _) => { using var f = new frmLichSuNhap(); f.ShowDialog(this); });
+
+        var pnlLeftBot = new FlowLayoutPanel
+        {
+            Height = 52,
+            Dock = DockStyle.Bottom,
+            FlowDirection = FlowDirection.LeftToRight,
+            Padding = new Padding(0, 8, 0, 0),
+            BackColor = Color.Transparent
+        };
+        btnSave.Margin = new Padding(0, 0, 12, 0);
+        btnRemove.Margin = new Padding(0, 0, 12, 0);
+        _lblTongTien.Margin = new Padding(0, 6, 16, 0);
+        btnLichSu.Margin = new Padding(0);
+
         pnlLeftBot.Controls.Add(btnSave);
         pnlLeftBot.Controls.Add(btnRemove);
         pnlLeftBot.Controls.Add(_lblTongTien);
-        var btnLichSu = Theme.GhostButton("Lịch sử nhập kho", 140, (_, _) => { using var f = new frmLichSuNhap(); f.ShowDialog(this); });
-        btnLichSu.Margin = new Padding(0, 0, 0, 0);
         pnlLeftBot.Controls.Add(btnLichSu);
 
         var pnlLeft = new Panel { Dock = DockStyle.Fill };
         pnlLeft.Controls.Add(GridCard(_grid));
         pnlLeft.Controls.Add(pnlLeftBot);
 
-        AddRow(TwoCols(pnlLeft, editor, 360), fill: true);
+        AddRow(TwoCols(pnlLeft, editor, 410), fill: true);
         UpdateTongTien();
     }
 

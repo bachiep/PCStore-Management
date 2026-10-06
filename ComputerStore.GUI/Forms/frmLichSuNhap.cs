@@ -52,9 +52,14 @@ public class frmLichSuNhap : Form
         bar.Controls.Add(_lblTong);
 
         var split = new SplitContainer { Dock = DockStyle.Fill, Orientation = Orientation.Horizontal, SplitterDistance = 280, Padding = new Padding(12, 0, 12, 12) };
-        _gridPN.Dock = DockStyle.Fill; _gridCT.Dock = DockStyle.Fill;
-        split.Panel1.Controls.Add(_gridPN);
-        split.Panel2.Controls.Add(_gridCT);
+        var pnlPN = Theme.CardPanel(new Padding(5)); pnlPN.Dock = DockStyle.Fill;
+        _gridPN.BorderStyle = BorderStyle.None; pnlPN.Controls.Add(_gridPN);
+        
+        var pnlCT = Theme.CardPanel(new Padding(5)); pnlCT.Dock = DockStyle.Fill;
+        _gridCT.BorderStyle = BorderStyle.None; pnlCT.Controls.Add(_gridCT);
+        
+        split.Panel1.Controls.Add(pnlPN);
+        split.Panel2.Controls.Add(pnlCT);
 
         Controls.Add(split);
         Controls.Add(bar);
