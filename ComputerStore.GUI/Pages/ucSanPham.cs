@@ -19,7 +19,7 @@ public class ucSanPham : PageBase
     private string? _imageName;
     private int _currentId;
     private bool _loading;
-    private Button _btnSave = null!, _btnDelete = null!, _btnNew = null!, _btnImg = null!, _btnIcon = null!;
+    private Components.ModernButton _btnSave = null!, _btnDelete = null!, _btnNew = null!, _btnImg = null!, _btnIcon = null!;
 
     public ucSanPham() : base("Sản phẩm")
     {
@@ -35,6 +35,8 @@ public class ucSanPham : PageBase
             Theme.Col("GiaBan", "Giá bán", weight: 0.9f, format: "N0", right: true),
             Theme.Col("SoLuongTon", "SL", weight: 0.45f, right: true),
             Theme.Col("TrangThaiText", "Trạng thái", "TrangThai", weight: 0.85f));
+        if (!IsAdmin) _grid.Columns["GiaNhap"].Visible = false;
+
         _grid.CellFormatting += (_, e) =>
         {
             if (_grid.Columns[e.ColumnIndex].Name == "TrangThaiText" && e.Value is bool b) { e.Value = b ? "Đang bán" : "Ngừng KD"; e.FormattingApplied = true; }
@@ -45,7 +47,12 @@ public class ucSanPham : PageBase
 
         var btnRefresh = Theme.GhostButton("Làm mới", 90, (_, _) => LoadProducts());
         var btnAdd = Theme.PrimaryButton("+ Thêm mới", 110, (_, _) => ClearForm()); btnAdd.Name = "btnThemSanPham"; btnAdd.Enabled = IsAdmin;
-        AddRow(Toolbar(btnAdd, _search, _filterDM, _filterHang, _onlyActive, btnRefresh, ExportButton(_grid, "DanhSachSanPham")));
+        var infoSP = Theme.InfoBadge(
+            "• Quản lý thông tin linh kiện, giá niêm yết, thời gian bảo hành.\n" +
+            "• Số lượng tồn kho được quản lý tự động: Tăng qua Phiếu nhập, giảm qua Bán hàng POS, hoàn trả khi Hủy hóa đơn.\n" +
+            "• Nhân viên bán hàng chỉ xem Giá bán. Giá nhập được bảo mật (chỉ Quản trị viên mới được xem/sửa).",
+            "Quy tắc Quản lý Sản phẩm");
+        AddRow(Toolbar(btnAdd, _search, _filterDM, _filterHang, _onlyActive, btnRefresh, ExportButton(_grid, "DanhSachSanPham"), infoSP));
 
         _search.Name = "txtTimSanPham";
         _filterDM.SelectedIndexChanged += (_, _) => { if (!_loading) LoadProducts(); };
@@ -67,10 +74,14 @@ public class ucSanPham : PageBase
         
         var picRow = Theme.Row(_pic, btnCol);
 
+        Control giaControl = IsAdmin
+            ? Theme.Pair(Theme.Field("Giá nhập (₫)", _giaNhap, 150), Theme.Field("Giá bán (₫) *", _giaBan, 150))
+            : Theme.Field("Giá bán (₫) *", _giaBan, 310);
+
         var editor = EditorCard("Thông tin sản phẩm",
             Theme.Field("Tên sản phẩm *", _ten, 310),
             Theme.Pair(Theme.Field("Danh mục *", _dm, 150), Theme.Field("Hãng *", _hang, 150)),
-            Theme.Pair(Theme.Field("Giá nhập (₫)", _giaNhap, 150), Theme.Field("Giá bán (₫) *", _giaBan, 150)),
+            giaControl,
             Theme.Pair(Theme.Field("Bảo hành (tháng)", _bh, 150), Theme.Field("Trạng thái", _active, 150)),
             Theme.Field("Mô tả", _moTa, 310),
             picRow,
@@ -116,7 +127,8 @@ public class ucSanPham : PageBase
         _currentId = s.MaSP;
         _ten.Text = s.TenSP;
         _dm.SelectedValue = s.MaDM; _hang.SelectedValue = s.MaHang;
-        _giaNhap.Text = Theme.Num(s.GiaNhap); _giaBan.Text = Theme.Num(s.GiaBan);
+        _giaNhap.Text = IsAdmin ? Theme.Num(s.GiaNhap) : "***";
+        _giaBan.Text = Theme.Num(s.GiaBan);
         _bh.Text = s.ThoiGianBH.ToString(); _moTa.Text = s.MoTa ?? "";
         _active.Checked = s.TrangThai;
         _imageName = s.HinhAnh;
@@ -160,7 +172,7 @@ public class ucSanPham : PageBase
     private void ClearForm()
     {
         _currentId = 0; _imageName = null;
-        _ten.Clear(); _giaNhap.Text = "0"; _giaBan.Text = ""; _bh.Text = "12"; _moTa.Clear(); _active.Checked = true;
+        _ten.Clear(); _giaNhap.Text = IsAdmin ? "0" : "***"; _giaBan.Text = ""; _bh.Text = "12"; _moTa.Clear(); _active.Checked = true;
         _pic.Image?.Dispose(); _pic.Image = null;
         _grid.CurrentCell = null; _grid.ClearSelection();
         _ten.Focus();

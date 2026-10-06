@@ -11,7 +11,7 @@ public class PhieuNhapDAL
                        JOIN NhaCungCap ncc ON ncc.MaNCC = pn.MaNCC
                        JOIN NhanVien nv ON nv.MaNV = pn.MaNV
                        WHERE CAST(pn.NgayNhap AS DATE) BETWEEN @tu AND @den
-                       ORDER BY pn.NgayNhap DESC", P("@tu", tuNgay.Date), P("@den", denNgay.Date)),
+                       ORDER BY pn.NgayNhap DESC, pn.MaPN DESC", P("@tu", tuNgay.Date), P("@den", denNgay.Date)),
         r => new PhieuNhapDTO
         {
             MaPN = r.Int("MaPN"), NgayNhap = r.Date("NgayNhap"), MaNCC = r.Int("MaNCC"), TenNCC = r.Str("TenNCC"),
@@ -73,11 +73,11 @@ public class HoaDonDAL
     public List<HoaDonDTO> Search(DateTime tuNgay, DateTime denNgay, string keyword) => Map(
         ExecuteQuery(BaseSelect + @" WHERE CAST(hd.NgayLap AS DATE) BETWEEN @tu AND @den
                                      AND (@k = '' OR CAST(hd.MaHD AS CHAR) = @k OR kh.HoTen LIKE @kl OR kh.SDT LIKE @kl)
-                                     ORDER BY hd.NgayLap DESC",
+                                     ORDER BY hd.NgayLap DESC, hd.MaHD DESC",
             P("@tu", tuNgay.Date), P("@den", denNgay.Date), P("@k", keyword), P("@kl", $"%{keyword}%")), ToDto);
 
     public List<HoaDonDTO> GetByCustomer(int maKH) => Map(
-        ExecuteQuery(BaseSelect + " WHERE hd.MaKH = @id ORDER BY hd.NgayLap DESC", P("@id", maKH)), ToDto);
+        ExecuteQuery(BaseSelect + " WHERE hd.MaKH = @id ORDER BY hd.NgayLap DESC, hd.MaHD DESC", P("@id", maKH)), ToDto);
 
     public HoaDonDTO? GetById(int maHD)
     {

@@ -14,10 +14,10 @@ public class ucBaoHanh : PageBase
     private readonly TextBox _txtSerial = Theme.Input(160, "Nhập Serial...");
     private readonly Label _lblInfo = new() { Font = Theme.Base, AutoSize = true, MaximumSize = new Size(320, 0) };
     private readonly TextBox _txtMoTa = Theme.Input(320);
-    private readonly Button _btnLapPhieu;
+    private readonly Components.ModernButton _btnLapPhieu;
     private readonly TextBox _txtKetQua = Theme.Input(320);
     private readonly ComboBox _cboTrangThaiCapNhat = Theme.Combo();
-    private readonly Button _btnCapNhat;
+    private readonly Components.ModernButton _btnCapNhat;
     
     private PhieuBaoHanhDTO? _selectedPhieu;
     private SerialDTO? _currentSerial;
@@ -57,13 +57,13 @@ public class ucBaoHanh : PageBase
             Theme.Row(_txtSerial, btnTraCuu),
             _lblInfo,
             Theme.Field("Mô tả lỗi *", _txtMoTa, 320),
-            _btnLapPhieu
+            Theme.Row(_btnLapPhieu)
         );
         
         var capNhatCard = EditorCard("Cập nhật phiếu đang chọn",
             Theme.Field("Kết quả xử lý", _txtKetQua, 320),
             Theme.Field("Trạng thái mới", _cboTrangThaiCapNhat, 200),
-            _btnCapNhat
+            Theme.Row(_btnCapNhat)
         );
 
         var rightPanel = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 2, Margin = new Padding(0) };
@@ -77,7 +77,13 @@ public class ucBaoHanh : PageBase
         rightPanel.Controls.Add(lapPhieuCard, 0, 0);
         rightPanel.Controls.Add(capNhatCard, 0, 1);
 
-        AddRow(Toolbar(_search, _cboTrangThaiLoc, Theme.GhostButton("Làm mới", 80, (_, _) => LoadPhieu())));
+        var infoBH = Theme.InfoBadge(
+            "• Tra cứu bảo hành linh kiện theo số Serial / IMEI đã xuất hóa đơn.\n" +
+            "• Thời hạn bảo hành tự động được tính toán dựa vào Ngày xuất và Số tháng BH của sản phẩm.\n" +
+            "• Vòng đời tiếp nhận phiếu: Tiếp nhận -> Đang sửa chữa -> Đã xử lý -> Đã trả khách.",
+            "Quy trình Bảo hành");
+
+        AddRow(Toolbar(_search, _cboTrangThaiLoc, Theme.GhostButton("Làm mới", 80, (_, _) => LoadPhieu()), infoBH));
         AddRow(TwoCols(GridCard(_grid), rightPanel, 370), fill: true);
         
         ClearLapPhieu();

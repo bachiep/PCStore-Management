@@ -13,11 +13,42 @@ public class ucThongKe : PageBase
     private readonly FormsPlot _plot = new() { Dock = DockStyle.Fill };
     private readonly DataGridView _gridTop = Theme.Grid();
     private readonly DataGridView _gridDoanhThu = Theme.Grid();
+    private readonly ToolTip _chartTip = new();
+    private List<DoanhThuDTO> _currentDataThang = new();
+    private int _lastHoverMonth = -1;
     
     public ucThongKe() : base("Thống kê (Admin)")
     {
         Name = "ucThongKe";
         
+        _plot.MouseMove += (_, e) =>
+        {
+            if (_currentDataThang.Count == 0) return;
+            var pixel = new ScottPlot.Pixel(e.X, e.Y);
+            var coord = _plot.Plot.GetCoordinates(pixel);
+            int idx = (int)Math.Round(coord.X);
+            if (idx >= 0 && idx < _currentDataThang.Count && coord.Y >= 0)
+            {
+                var maxVal = Math.Max((double)_currentDataThang[idx].DoanhThu, (double)_currentDataThang[idx].LoiNhuan) / 1000000.0;
+                if (coord.Y <= maxVal * 1.15 && Math.Abs(coord.X - idx) <= 0.45)
+                {
+                    if (_lastHoverMonth != idx)
+                    {
+                        _lastHoverMonth = idx;
+                        var item = _currentDataThang[idx];
+                        _chartTip.Show($"{item.Nhan}:\n• Doanh thu: {item.DoanhThu:N0} ₫\n• Lợi nhuận: {item.LoiNhuan:N0} ₫\n• Số HĐ: {item.SoHoaDon}", _plot, e.X + 15, e.Y + 15, 3000);
+                    }
+                    return;
+                }
+            }
+            if (_lastHoverMonth != -1)
+            {
+                _lastHoverMonth = -1;
+                _chartTip.Hide(_plot);
+            }
+        };
+        _plot.MouseLeave += (_, _) => { _lastHoverMonth = -1; _chartTip.Hide(_plot); };
+
         for (int i = DateTime.Now.Year; i >= 2020; i--) _cboNam.Items.Add(i);
         _cboNam.SelectedIndex = 0;
         _cboNam.SelectedIndexChanged += (_, _) => LoadData();
@@ -104,23 +135,7 @@ public class ucThongKe : PageBase
             foreach (var b in barLn.Bars) { b.FillColor = ScottPlot.Color.FromHex("#10B981"); b.Size = 0.35; }
             barLn.LegendText = "Lợi nhuận";
 
-            // Hiển thị số liệu thực tế trên đầu cột
-            for (int i = 0; i < dataThang.Count; i++)
-            {
-                if (dataThang[i].DoanhThu > 0)
-                {
-                    var t = _plot.Plot.Add.Text(dataThang[i].DoanhThu.ToString("N0"), posDt[i], dtValues[i]);
-                    t.LabelFontSize = 10; t.LabelAlignment = ScottPlot.Alignment.LowerCenter; t.LabelFontColor = ScottPlot.Color.FromHex("#1E3A8A");
-                    t.LabelRotation = -45;
-                }
-                if (dataThang[i].LoiNhuan > 0)
-                {
-                    var t = _plot.Plot.Add.Text(dataThang[i].LoiNhuan.ToString("N0"), posLn[i], lnValues[i]);
-                    t.LabelFontSize = 10; t.LabelAlignment = ScottPlot.Alignment.LowerCenter; t.LabelFontColor = ScottPlot.Color.FromHex("#064E3B");
-                    t.LabelRotation = -45;
-                }
-            }
-
+            _currentDataThang = dataThang;
             var labels = dataThang.Select(x => x.Nhan).ToArray();
             _plot.Plot.Axes.Bottom.SetTicks(positions, labels);
 

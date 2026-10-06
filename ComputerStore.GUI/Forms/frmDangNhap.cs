@@ -6,7 +6,7 @@ public class frmDangNhap : Form
 {
     private readonly TextBox _user = new();
     private readonly TextBox _pass = new();
-    private readonly Button _btnLogin;
+    private readonly Components.ModernButton _btnLogin;
     private readonly Label _error = new();
     private readonly CheckBox _show = new();
     private readonly TaiKhoanBLL _bll = new();

@@ -60,11 +60,11 @@ public class BaoHanhDAL
     /// <param name="trangThai">rỗng = tất cả</param>
     public List<PhieuBaoHanhDTO> Search(string keyword, string trangThai) => Map(
         ExecuteQuery(BaseSelect + @" WHERE (b.Serial LIKE @k OR sp.TenSP LIKE @k OR kh.HoTen LIKE @k OR kh.SDT LIKE @k)
-                                     AND (@tt = '' OR b.TrangThai = @tt) ORDER BY b.NgayNhan DESC",
+                                     AND (@tt = '' OR b.TrangThai = @tt) ORDER BY b.NgayNhan DESC, b.MaPBH DESC",
             P("@k", $"%{keyword}%"), P("@tt", trangThai)), ToDto);
 
     public List<PhieuBaoHanhDTO> GetBySerial(string serial) => Map(
-        ExecuteQuery(BaseSelect + " WHERE b.Serial = @s ORDER BY b.NgayNhan DESC", P("@s", serial)), ToDto);
+        ExecuteQuery(BaseSelect + " WHERE b.Serial = @s ORDER BY b.NgayNhan DESC, b.MaPBH DESC", P("@s", serial)), ToDto);
 
     public int Create(PhieuBaoHanhDTO p) => InTransaction((conn, tran) =>
     {

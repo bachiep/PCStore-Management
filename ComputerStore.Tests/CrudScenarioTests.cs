@@ -30,6 +30,7 @@ public class CrudScenarioTests
         Assert.Equal("Hà Nội", bll.Search(name).Single().DiaChi);
         bll.Delete(created.MaNCC);
         Assert.Empty(bll.Search(name));
+        DbHelper.ExecuteNonQuery("ALTER TABLE NhaCungCap AUTO_INCREMENT = 1");
     }
 
     // TC-02: Dữ liệu nhà cung cấp sai bị từ chối, nhân viên thường không được thêm
@@ -65,6 +66,7 @@ public class CrudScenarioTests
         nvBll.Delete(id);
         Assert.DoesNotContain(nvBll.Search(user), n => n.MaNV == id);
         Assert.Throws<BusinessException>(() => tkBll.DangNhap(user, "abc123"));
+        DbHelper.ExecuteNonQuery("ALTER TABLE NhanVien AUTO_INCREMENT = 1");
     }
 
     // TC-04: Cho nhân viên nghỉ việc → tài khoản bị khóa, không đăng nhập được; không tạo tài khoản mới cho người đã nghỉ
@@ -85,6 +87,7 @@ public class CrudScenarioTests
         var id2 = nvBll.Save(new NhanVienDTO { HoTen = "Đã nghỉ " + Tag, ChucVu = "Tạm", TrangThai = false });
         Assert.Throws<BusinessException>(() => tkBll.TaoTaiKhoan(id2, "x" + Tag, "abc123", VaiTroConst.NhanVien));
         nvBll.Delete(id); nvBll.Delete(id2);
+        DbHelper.ExecuteNonQuery("ALTER TABLE NhanVien AUTO_INCREMENT = 1");
     }
 
     // TC-05: Các chốt chặn nhân viên/tài khoản
@@ -102,6 +105,7 @@ public class CrudScenarioTests
         Assert.Throws<BusinessException>(() => new TaiKhoanBLL().TaoTaiKhoan(id, "r" + Tag, "123", VaiTroConst.NhanVien)); // mật khẩu ngắn
         Assert.Throws<BusinessException>(() => new TaiKhoanBLL().DatLaiMatKhau("khong_ton_tai_" + Tag, "abc123"));
         nvBll.Delete(id);
+        DbHelper.ExecuteNonQuery("ALTER TABLE NhanVien AUTO_INCREMENT = 1");
     }
 
     // TC-06: Nhân viên đã có giao dịch không được xóa
@@ -128,6 +132,7 @@ public class CrudScenarioTests
         Assert.Throws<BusinessException>(() => bll.Save(new KhachHangDTO { HoTen = "Sai SĐT", SDT = "123" }));
         bll.Delete(id);
         Assert.Null(bll.GetByPhone(phone));
+        DbHelper.ExecuteNonQuery("ALTER TABLE KhachHang AUTO_INCREMENT = 1");
     }
 
     // TC-08: Sản phẩm ngừng kinh doanh không bán được ở tầng nghiệp vụ
@@ -152,7 +157,10 @@ public class CrudScenarioTests
             var ex = Assert.Throws<BusinessException>(() => new HoaDonBLL().LapHoaDon(hd, items));
             Assert.Contains("ngừng kinh doanh", ex.Message);
         }
-        finally { spBll.Delete(id); }
+        finally {
+            spBll.Delete(id);
+            DbHelper.ExecuteNonQuery("ALTER TABLE SanPham AUTO_INCREMENT = 1");
+        }
     }
 
     // TC-09: Sản phẩm: tên trống / giá bán 0 / bảo hành quá lớn bị từ chối

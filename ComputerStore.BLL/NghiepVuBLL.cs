@@ -255,4 +255,8 @@ public class ThongKeBLL
     }
 
     public System.Data.DataTable SanPhamSapHet(int nguong = SanPhamBLL.NguongSapHet) => _dal.SanPhamSapHet(nguong);
+
+    public List<DoanhThuDanhMucDTO> DoanhThuTheoDanhMuc() => _dal.DoanhThuTheoDanhMuc();
+
+    public List<HoaDonGanNhatDTO> HoaDonGanNhat(int top = 5) => _dal.HoaDonGanNhat(top);
 }

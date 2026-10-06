@@ -255,3 +255,27 @@ public class BaoHanhTests
         Assert.Contains("10 ngày", r.ThongBao);
     }
 }
+
+public class ThongKeDashboardTests
+{
+    [Fact]
+    public void DoanhThuDanhMucDTO_CalculatesRatioProperly()
+    {
+        var item = new DoanhThuDanhMucDTO { TenDM = "CPU", DoanhThu = 50_000_000m, TyLe = 25.5 };
+        Assert.Equal("CPU", item.TenDM);
+        Assert.Equal(50_000_000m, item.DoanhThu);
+        Assert.Equal(25.5, item.TyLe);
+    }
+
+    [Fact]
+    public void HoaDonGanNhatDTO_StoresDetailsProperly()
+    {
+        var now = DateTime.Now;
+        var hd = new HoaDonGanNhatDTO { MaHD = 101, TenKH = "Nguyễn Văn A", NgayLap = now, ThanhToan = 15_000_000m };
+        Assert.Equal(101, hd.MaHD);
+        Assert.Equal("Nguyễn Văn A", hd.TenKH);
+        Assert.Equal(now, hd.NgayLap);
+        Assert.Equal(15_000_000m, hd.ThanhToan);
+    }
+}
+

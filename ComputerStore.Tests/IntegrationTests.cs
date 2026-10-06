@@ -275,6 +275,7 @@ public class IntegrationTests
 
             bll.Restore(path);
             Assert.Null(DbHelper.ExecuteScalar("SELECT MaNCC FROM NhaCungCap WHERE TenNCC=@t", DbHelper.P("@t", ten)));
+            DbHelper.ExecuteNonQuery("ALTER TABLE NhaCungCap AUTO_INCREMENT = 1");
             Assert.Equal(spBefore, new SanPhamBLL().Search().Count);
             Assert.Throws<BusinessException>(() => bll.Restore(path + ".missing"));
         }

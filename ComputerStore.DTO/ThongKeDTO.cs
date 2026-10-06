@@ -27,3 +27,18 @@ public class TongQuanDTO
     public int SoKhachHang { get; set; }
     public int SoPhieuBaoHanhDangXuLy { get; set; }
 }
+
+public class DoanhThuDanhMucDTO
+{
+    public string TenDM { get; set; } = "";
+    public decimal DoanhThu { get; set; }
+    public double TyLe { get; set; }
+}
+
+public class HoaDonGanNhatDTO
+{
+    public int MaHD { get; set; }
+    public string TenKH { get; set; } = "";
+    public DateTime NgayLap { get; set; }
+    public decimal ThanhToan { get; set; }
+}
