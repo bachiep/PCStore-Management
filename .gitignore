@@ -40,9 +40,18 @@ Generated\ Files/
 # MAC
 .DS_Store
 
-# AI Artifacts and test reports
+# Test artifacts, logs and screenshots
+*.log
+crash_log.txt
 page_test_report.txt
 test_report.txt
 shots/
+*.tmp
+*.temp
 
+# Local tools & scripts
 tools/
+
+# IDE and editors
+.idea/
+.vscode/
