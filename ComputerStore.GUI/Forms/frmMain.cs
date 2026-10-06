@@ -22,6 +22,7 @@ public class frmMain : Form
         MinimumSize = new Size(1100, 680);
         Size = new Size(1360, 820);
         StartPosition = FormStartPosition.CenterScreen;
+        WindowState = FormWindowState.Maximized;
 
         Controls.Add(_content);
         Controls.Add(BuildHeader());

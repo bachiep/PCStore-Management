@@ -37,28 +37,25 @@ public static class Theme
 
     // ---------------- Control factories ----------------
 
-    public static Button PrimaryButton(string text, int width = 110, EventHandler? onClick = null)
+    public static Components.ModernButton PrimaryButton(string text, int width = 110, EventHandler? onClick = null)
         => MakeButton(text, Accent, Color.White, width, onClick);
 
-    public static Button DangerButton(string text, int width = 110, EventHandler? onClick = null)
+    public static Components.ModernButton DangerButton(string text, int width = 110, EventHandler? onClick = null)
         => MakeButton(text, Danger, Color.White, width, onClick);
 
-    public static Button GhostButton(string text, int width = 110, EventHandler? onClick = null)
+    public static Components.ModernButton GhostButton(string text, int width = 110, EventHandler? onClick = null)
         => MakeButton(text, Color.White, Text, width, onClick, true);
 
-    private static Button MakeButton(string text, Color back, Color fore, int width, EventHandler? onClick, bool border = false)
+    private static Components.ModernButton MakeButton(string text, Color back, Color fore, int width, EventHandler? onClick, bool border = false)
     {
-        var b = new Button
-        {
-            Text = text, Width = width, Height = 34, FlatStyle = FlatStyle.Flat, BackColor = back, ForeColor = fore,
-            Font = Bold, Cursor = Cursors.Hand, Margin = new Padding(0, 0, 8, 0), UseVisualStyleBackColor = false,
-            AutoSize = true, AutoSizeMode = AutoSizeMode.GrowOnly, MinimumSize = new Size(width, 34), Padding = new Padding(8, 0, 8, 0)
-        };
-        b.FlatAppearance.BorderSize = border ? 1 : 0;
-        b.FlatAppearance.BorderColor = Border;
         var hover = border ? ColorTranslator.FromHtml("#F9FAFB") : ControlPaint.Dark(back, 0.08f);
-        b.FlatAppearance.MouseOverBackColor = hover;
-        b.FlatAppearance.MouseOverBackColor = hover;
+        var b = new Components.ModernButton
+        {
+            Text = text, Width = width, Height = 34, NormalColor = back, HoverColor = hover, ForeColor = fore,
+            Font = Bold, Cursor = Cursors.Hand, Margin = new Padding(0, 0, 8, 0),
+            AutoSize = false, Padding = new Padding(8, 0, 8, 0)
+        };
+        if (border) { b.BorderSize = 1; b.BorderColor = Border; b.NormalColor = Color.White; }
         if (onClick != null) b.Click += onClick;
         return b;
     }
@@ -86,7 +83,7 @@ public static class Theme
     }
 
     public static ComboBox Combo(int width = 200)
-        => new() { Width = width, Font = Base, DropDownStyle = ComboBoxStyle.DropDownList, FlatStyle = FlatStyle.Standard, BackColor = Color.White, Margin = new Padding(0, 0, 8, 0) };
+        => new() { Width = width, Font = Base, DropDownStyle = ComboBoxStyle.DropDownList, FlatStyle = FlatStyle.Flat, BackColor = Color.White, Margin = new Padding(0, 0, 8, 0) };
 
     public static Label Caption(string text, bool muted = true)
         => new() { Text = text, AutoSize = true, Font = muted ? Small : Base, ForeColor = muted ? Muted : Text, Margin = new Padding(0, 4, 8, 2) };
@@ -94,10 +91,41 @@ public static class Theme
     public static Label Title(string text)
         => new() { Text = text, AutoSize = true, UseMnemonic = false, Font = H1, ForeColor = Text, Margin = new Padding(0, 0, 0, 6) };
 
+    /// <summary>Huy hiệu chữ 'ⓘ' tròn nhỏ hiển thị ToolTip bóng thoại hướng dẫn khi hover hoặc click.</summary>
+    public static Control InfoBadge(string tooltipText, string title = "Hướng dẫn")
+    {
+        var lbl = new Label
+        {
+            Text = "ⓘ",
+            Font = new Font("Segoe UI", 11f, FontStyle.Bold),
+            ForeColor = Accent,
+            Cursor = Cursors.Hand,
+            AutoSize = false,
+            Width = 24,
+            Height = 24,
+            TextAlign = ContentAlignment.MiddleCenter,
+            Margin = new Padding(4, 3, 4, 3)
+        };
+        lbl.MouseEnter += (_, _) => lbl.ForeColor = AccentDark;
+        lbl.MouseLeave += (_, _) => lbl.ForeColor = Accent;
+
+        var tip = new ToolTip
+        {
+            ToolTipTitle = title,
+            IsBalloon = true,
+            ToolTipIcon = ToolTipIcon.Info,
+            AutoPopDelay = 15000,
+            InitialDelay = 150,
+            ReshowDelay = 100
+        };
+        tip.SetToolTip(lbl, tooltipText);
+        lbl.Click += (_, _) => tip.Show(tooltipText, lbl, 0, lbl.Height, 8000);
+        return lbl;
+    }
+
     public static Panel CardPanel(Padding? padding = null)
     {
-        var p = new Panel { BackColor = Card, Padding = padding ?? new Padding(14), Margin = new Padding(0, 0, 0, 12) };
-        p.Paint += (_, e) => { using var pen = new Pen(Border); e.Graphics.DrawRectangle(pen, 0, 0, p.Width - 1, p.Height - 1); };
+        var p = new Components.ModernPanel { FillColor = Card, Padding = padding ?? new Padding(14), Margin = new Padding(0, 0, 0, 12) };
         return p;
     }
 
@@ -205,7 +233,11 @@ public static class Theme
         c.MinimumWidth = weight < 0.6f ? 42 : 60;
         if (format != null) c.DefaultCellStyle.Format = format;
         c.DefaultCellStyle.FormatProvider = Vi;
-        // Xóa căn phải, để mọi thứ sát bên trái như yêu cầu
+        if (right)
+        {
+            c.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
+            c.HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleRight;
+        }
         return c;
     }
 }

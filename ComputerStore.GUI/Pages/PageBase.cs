@@ -51,12 +51,22 @@ public abstract class PageBase : UserControl
 
     protected static Panel EditorCard(string title, params Control[] controls)
     {
-        var p = Theme.CardPanel(new Padding(24, 20, 20, 20));
+        var p = Theme.CardPanel(new Padding(24, 20, 24, 20));
         p.Margin = new Padding(16, 0, 0, 0);
+
+        Control? lastControl = controls.Length > 0 ? controls[^1] : null;
+        if (lastControl is FlowLayoutPanel bottomPanel)
+        {
+            bottomPanel.Dock = DockStyle.Bottom;
+            bottomPanel.Padding = new Padding(0, 10, 0, 0);
+            p.Controls.Add(bottomPanel);
+        }
+
         var flow = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoScroll = true };
         flow.Controls.Add(new Label { Text = title, Font = Theme.H2, AutoSize = true, UseMnemonic = false, Margin = new Padding(0, 0, 0, 16), ForeColor = Theme.Text });
         foreach (var c in controls) 
         {
+            if (c == lastControl && lastControl is FlowLayoutPanel) continue;
             if (c.Margin.Bottom == 0) c.Margin = new Padding(c.Margin.Left, c.Margin.Top, c.Margin.Right, 12);
             flow.Controls.Add(c);
         }
@@ -64,10 +74,11 @@ public abstract class PageBase : UserControl
         {
             var w = flow.ClientSize.Width;
             foreach (Control c in flow.Controls)
-                if (c.Tag as string == "fill") c.Width = Math.Max(120, w - c.Margin.Horizontal - 4);
+            {
+                if (c is Panel) c.Width = Math.Max(120, w - c.Margin.Horizontal);
+            }
         }
         flow.Layout += (_, _) => Stretch();
-        flow.HorizontalScroll.Maximum = 0; flow.AutoScroll = false; flow.VerticalScroll.Visible = false; flow.AutoScroll = true;
         p.Controls.Add(flow);
         return p;
     }
@@ -103,7 +114,7 @@ public abstract class PageBase : UserControl
     }
 
     /// <summary>Nút "Xuất Excel" cho một lưới dữ liệu.</summary>
-    protected static Button ExportButton(DataGridView grid, string title)
+    protected static Components.ModernButton ExportButton(DataGridView grid, string title)
         => Theme.GhostButton("Xuất Excel", 100, (_, _) =>
         {
             if (grid.Rows.Count == 0) { Msg.Warn("Không có dữ liệu để xuất."); return; }
