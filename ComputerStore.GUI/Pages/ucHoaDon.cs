@@ -50,11 +50,16 @@ public class ucHoaDon : PageBase
         pnlL.Controls.Add(_tuNgay);
         pnlL.Controls.Add(new Label { Text = "Đến:", AutoSize = true, Margin = new Padding(10, 7, 5, 0) });
         pnlL.Controls.Add(_denNgay);
-        
         var btnCancel = Theme.DangerButton("Hủy hóa đơn", 120, (_, _) => HuyHoaDon());
         btnCancel.Visible = Session.IsAdmin;
 
-        AddRow(Toolbar(_search, pnlL, btnRefresh, btnDetail, btnPrint, ExportButton(_grid, "DanhSachHoaDon"), btnCancel));
+        var infoHD = Theme.InfoBadge(
+            "• Nhấp đúp chuột vào một hóa đơn để xem chi tiết danh sách linh kiện và serial đã xuất.\n" +
+            "• In hóa đơn PDF: Hỗ trợ xuất file PDF có định dạng chuẩn theo hóa đơn bán hàng.\n" +
+            "• Hủy hóa đơn (Chỉ Admin): Yêu cầu nhập lý do; hệ thống tự động hoàn trả số lượng tồn kho và giải phóng serial sản phẩm tương ứng.",
+            "Quy tắc Quản lý Hóa đơn");
+
+        AddRow(Toolbar(_search, pnlL, btnRefresh, btnDetail, btnPrint, ExportButton(_grid, "DanhSachHoaDon"), btnCancel, infoHD));
         AddRow(GridCard(_grid), fill: true);
     }
 

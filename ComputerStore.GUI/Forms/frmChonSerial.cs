@@ -17,6 +17,7 @@ public class frmChonSerial : Form
         StartPosition = FormStartPosition.CenterParent;
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false; MinimizeBox = false;
+        BackColor = Theme.Page;
 
         var lbl = new Label { Text = $"Hãy đánh dấu chọn đúng {soLuong} serial:", AutoSize = true, Font = Theme.Base, Margin = new Padding(10) };
         var pnlTop = new FlowLayoutPanel { Height = 40, Dock = DockStyle.Top };
@@ -26,8 +27,12 @@ public class frmChonSerial : Form
         var pnlBot = new Panel { Height = 50, Dock = DockStyle.Bottom };
         pnlBot.Controls.Add(btnLuu); btnLuu.Location = new Point(290, 10);
 
-        var pnlFill = new Panel { Dock = DockStyle.Fill, Padding = new Padding(10) };
-        pnlFill.Controls.Add(_list);
+        var pnlFill = new Panel { Dock = DockStyle.Fill, Padding = new Padding(20, 10, 20, 10) };
+        var card = Theme.CardPanel(new Padding(5));
+        card.Dock = DockStyle.Fill;
+        _list.BorderStyle = BorderStyle.None;
+        card.Controls.Add(_list);
+        pnlFill.Controls.Add(card);
 
         Controls.Add(pnlFill);
         Controls.Add(pnlTop);

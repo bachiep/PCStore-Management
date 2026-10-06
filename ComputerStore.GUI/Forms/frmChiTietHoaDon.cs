@@ -14,6 +14,7 @@ public class frmChiTietHoaDon : Form
         StartPosition = FormStartPosition.CenterParent;
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false; MinimizeBox = false;
+        BackColor = Theme.Page;
 
         _grid.AutoGenerateColumns = false;
         _grid.Columns.AddRange(
@@ -23,18 +24,22 @@ public class frmChiTietHoaDon : Form
             Theme.Col("ThanhTien", "Thành tiền", weight: 1f, format: "N0", right: true)
         );
         
-        var pnlFill = new Panel { Dock = DockStyle.Fill, Padding = new Padding(10) };
-        pnlFill.Controls.Add(_grid);
+        var pnlFill = new Panel { Dock = DockStyle.Fill, Padding = new Padding(20) };
+        var card = Theme.CardPanel(new Padding(5));
+        card.Dock = DockStyle.Fill;
+        card.Controls.Add(_grid);
+        pnlFill.Controls.Add(card);
         
         var lblInfo = new Label
         {
             Text = $"Khách hàng: {hd.TenKH ?? "Khách lẻ"} (SĐT: {hd.SDTKH ?? "N/A"})\nNhân viên: {hd.TenNV}\nTổng tiền: {hd.TongTien:N0} ₫\nGiảm giá: {hd.GiamGia:N0} ₫\nThanh toán: {hd.ThanhToan:N0} ₫ ({hd.HinhThucTT})\nGhi chú: {hd.GhiChu}"
                  + (hd.DaHuy ? $"\nHÓA ĐƠN ĐÃ HỦY {hd.NgayHuy:dd/MM/yyyy HH:mm} — Lý do: {hd.LyDoHuy}" : ""),
             Dock = DockStyle.Top,
-            Height = hd.DaHuy ? 145 : 120,
+            AutoSize = true,
+            MaximumSize = new Size(780, 0),
             ForeColor = hd.DaHuy ? Theme.Danger : Theme.Text,
             Font = Theme.Base,
-            Padding = new Padding(10)
+            Padding = new Padding(20, 20, 20, 10)
         };
         
         Controls.Add(pnlFill);
