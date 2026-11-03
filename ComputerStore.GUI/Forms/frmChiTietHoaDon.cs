@@ -12,9 +12,10 @@ public class frmChiTietHoaDon : Form
     {
         Text = $"Chi tiết hóa đơn #{hd.MaHD} - Ngày lập: {hd.NgayLap:dd/MM/yyyy HH:mm}";
         Size = new Size(800, 560);
+        MinimumSize = new Size(800, 560);
         StartPosition = FormStartPosition.CenterParent;
-        FormBorderStyle = FormBorderStyle.FixedDialog;
-        MaximizeBox = false; MinimizeBox = false;
+        FormBorderStyle = FormBorderStyle.Sizable;
+        MaximizeBox = true; MinimizeBox = false;
         BackColor = Theme.Page;
 
         _grid.AutoGenerateColumns = false;
@@ -57,11 +58,29 @@ public class frmChiTietHoaDon : Form
             BackColor = Color.White, ForeColor = hd.DaHuy ? Theme.Danger : Theme.Text,
             Font = Theme.Small, TabStop = false, Margin = new Padding(0, 8, 0, 0)
         };
+        var measuredNotesHeight = TextRenderer.MeasureText(
+            notes.Text, notes.Font, new Size(650, 10000),
+            TextFormatFlags.WordBreak | TextFormatFlags.TextBoxControl).Height + 8;
         var notesHeight = Math.Clamp(
-            TextRenderer.MeasureText(notes.Text, notes.Font, new Size(650, 10000),
-                TextFormatFlags.WordBreak | TextFormatFlags.TextBoxControl).Height + 16,
-            64, 120);
+            measuredNotesHeight + 44,
+            104, 220);
+        var availableHeight = Math.Max(560, Screen.PrimaryScreen?.WorkingArea.Height ?? 760);
+        Height = Math.Min(Math.Clamp(560 + notesHeight - 120, 560, 760), availableHeight);
         var summaryHeight = Math.Max(202, 144 + notesHeight);
+        var notesPanel = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 2,
+            Margin = new Padding(0), Padding = new Padding(0, 6, 0, 0),
+            BackColor = Color.White
+        };
+        notesPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        notesPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        notesPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
+        var expandNotes = Theme.GhostButton("Xem đầy đủ", 104, (_, _) => ShowFullNotes(notesText));
+        expandNotes.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        expandNotes.Margin = new Padding(0, 2, 0, 0);
+        notesPanel.Controls.Add(notes, 0, 0);
+        notesPanel.Controls.Add(expandNotes, 0, 1);
         var summaryLayout = new TableLayoutPanel
         {
             Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 2,
@@ -71,7 +90,7 @@ public class frmChiTietHoaDon : Form
         summaryLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         summaryLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, notesHeight));
         summaryLayout.Controls.Add(summary, 0, 0);
-        summaryLayout.Controls.Add(notes, 0, 1);
+        summaryLayout.Controls.Add(notesPanel, 0, 1);
         var summaryCard = Theme.CardPanel(new Padding(1));
         summaryCard.Dock = DockStyle.Fill;
         summaryCard.Margin = new Padding(0);
@@ -86,6 +105,37 @@ public class frmChiTietHoaDon : Form
         pnlFill.Controls.Add(layout);
 
         Msg.Run(() => _grid.DataSource = new HoaDonBLL().GetDetails(hd.MaHD));
+    }
+
+    private void ShowFullNotes(string text)
+    {
+        using var dialog = new Form
+        {
+            Text = "Ghi chú hóa đơn",
+            Size = new Size(720, 480),
+            MinimumSize = new Size(520, 320),
+            StartPosition = FormStartPosition.CenterParent,
+            FormBorderStyle = FormBorderStyle.Sizable,
+            MaximizeBox = true,
+            MinimizeBox = false,
+            BackColor = Theme.Page
+        };
+        var viewer = new TextBox
+        {
+            Text = text, Dock = DockStyle.Fill, Multiline = true, ReadOnly = true,
+            ScrollBars = ScrollBars.Both, WordWrap = true, BorderStyle = BorderStyle.FixedSingle,
+            BackColor = Color.White, ForeColor = Theme.Text, Font = Theme.Base,
+            Margin = new Padding(0)
+        };
+        var close = Theme.PrimaryButton("Đóng", 86, (_, _) => dialog.Close());
+        close.Dock = DockStyle.Right;
+        var footer = new Panel { Dock = DockStyle.Bottom, Height = 46, Padding = new Padding(0, 8, 0, 0) };
+        footer.Controls.Add(close);
+        var content = new Panel { Dock = DockStyle.Fill, Padding = new Padding(16) };
+        content.Controls.Add(viewer);
+        dialog.Controls.Add(content);
+        dialog.Controls.Add(footer);
+        dialog.ShowDialog(this);
     }
 
     private Label SummaryCell(string text, bool isCanceled = false, string? tooltip = null)

@@ -1,5 +1,7 @@
 # 🛒 HỆ THỐNG QUẢN LÝ CỬA HÀNG MÁY TÍNH & LINH KIỆN (PC STORE)
 
+**Mã nguồn công khai:** [github.com/bachiep/PCStore-Management](https://github.com/bachiep/PCStore-Management)
+
 Ứng dụng quản lý bán hàng, tồn kho và bảo hành linh kiện máy tính, xây dựng bằng **.NET 8 Windows Forms**, kiến trúc **GUI – BLL – DAL** và MySQL. DTO dùng để truyền dữ liệu giữa các lớp. Phạm vi và kết quả hiện tại được mô tả trong báo cáo; các phần chưa kiểm chứng trên giao diện thực tế không được xem là đã nghiệm thu.
 
 ---
@@ -34,7 +36,7 @@
 ### 5. Thiết kế UI/UX Modern Flat Design
 * **Không phụ thuộc thư viện UI nặng:** Toàn bộ các component (`ModernButton`, `ModernPanel`, `ProductCard`, `Theme.cs`) được tự lập trình bằng GDI+ hỗ trợ khử răng cưa (Anti-aliasing), hiệu ứng hover mượt mà và bo góc hiện đại.
 * **Bố cục co giãn:** Các trang sử dụng bố cục WinForms có thể thay đổi kích thước; việc nghiệm thu ở các độ phân giải và mức DPI cụ thể cần được thực hiện trên máy chạy ứng dụng.
-* **Ảnh sản phẩm:** 12 ảnh chụp thật được phân phối cùng ứng dụng làm ảnh đại diện theo danh mục. Chúng minh họa nhóm hàng, không khẳng định là đúng SKU; ảnh riêng của sản phẩm được ưu tiên. Tác giả và giấy phép được ghi trong `ComputerStore.GUI/Resources/ProductImages/ATTRIBUTION.md`.
+* **Ảnh sản phẩm:** 12 ảnh chụp thật theo danh mục và 7 ảnh được ánh xạ tới sản phẩm demo cụ thể. Các sản phẩm còn lại dùng ảnh tham khảo theo danh mục, được gắn nhãn trong giao diện; quản trị viên có thể chọn ảnh riêng cho từng sản phẩm. Tác giả và giấy phép được ghi trong `ComputerStore.GUI/Resources/ProductImages/ATTRIBUTION.md`.
 
 ---
 
@@ -49,7 +51,7 @@
 | **Xuất hóa đơn** | `QuestPDF` | Thiết kế và xuất hóa đơn bán lẻ dạng PDF |
 | **Biểu đồ thống kê** | `ScottPlot.WinForms` | Vẽ biểu đồ doanh thu tương tác cao |
 | **Xuất báo cáo** | `ClosedXML` | Xuất bảng dữ liệu và báo cáo ra file Excel (.xlsx) |
-| **Kiểm thử tự động** | `xUnit` | Bộ 85 ca kiểm thử xUnit cho nghiệp vụ và tích hợp CSDL |
+| **Kiểm thử tự động** | `xUnit` | Bộ 99 ca kiểm thử xUnit cho nghiệp vụ và tích hợp CSDL |
 
 ---
 
@@ -66,7 +68,7 @@ ComputerStore.sln
 │   ├── Forms/               # Các Form chức năng và Dialogs
 │   ├── Pages/               # Các UserControl màn hình chính (ucBanHang, ucNhapKho, ucDashboard...)
 │   └── Services/            # Dịch vụ xuất file, in ấn và tiện ích hỗ trợ
-├── ComputerStore.Tests/     # Bộ kiểm thử xUnit (85 ca logic và tích hợp)
+├── ComputerStore.Tests/     # Bộ kiểm thử xUnit (99 ca logic và tích hợp)
 └── Database/                # Scripts cài mới, dữ liệu mẫu và migration
     ├── 01_CreateDatabase.sql
     ├── 02_StoredProcedures.sql
