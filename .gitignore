@@ -7,6 +7,7 @@
 *.user
 *.userosscache
 *.sln.docstates
+~$*
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
@@ -50,8 +51,23 @@ shots/
 *.temp
 
 # Local tools & scripts
-tools/
+tools/*
+!tools/start_mysql.ps1
+
+# Local secrets and machine-specific configuration
+.env
+.env.*
+!.env.example
+*.secrets.json
+appsettings.Development.json
 
 # IDE and editors
 .idea/
 .vscode/
+
+# Local QA work, generated reports, and submission archives
+/work/
+/Bao_cao_BTL_ComputerStore*.docx
+/Bao_cao_BTL_ComputerStore*.pdf
+/ComputerStore_BTL_MaNguon*.zip
+/ComputerStore_SourceCode*.zip

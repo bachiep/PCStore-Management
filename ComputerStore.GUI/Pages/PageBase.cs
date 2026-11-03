@@ -1,12 +1,60 @@
 using ComputerStore.BLL;
+using System.Runtime.CompilerServices;
 
 namespace ComputerStore.GUI;
 
 /// <summary>Lớp cơ sở cho mọi màn hình nội dung (UserControl) hiển thị trong frmMain.</summary>
 public abstract class PageBase : UserControl
 {
+    private sealed class DebounceState
+    {
+        public required System.Windows.Forms.Timer Timer { get; init; }
+        public bool SuppressTextChanged { get; set; }
+    }
+
+    private static readonly ConditionalWeakTable<TextBox, DebounceState> DebounceStates = new();
     protected readonly TableLayoutPanel Root;
     public string PageTitle { get; }
+
+    public virtual bool HasUnsavedChanges => false;
+    public virtual bool ConfirmDiscardOnNavigation => false;
+
+    private bool _trackingSuppressed;
+    private bool _hasTrackedChanges;
+    protected bool HasTrackedChanges => _hasTrackedChanges;
+
+    /// <summary>Tracks edits in form controls so navigation can warn before discarding a draft.</summary>
+    protected void TrackChanges(params Control[] controls)
+    {
+        void Changed(object? sender, EventArgs e)
+        {
+            if (!_trackingSuppressed) _hasTrackedChanges = true;
+        }
+
+        foreach (var control in controls)
+        {
+            if (control is TextBoxBase text) text.TextChanged += Changed;
+            if (control is ComboBox combo) combo.SelectedIndexChanged += Changed;
+            if (control is CheckBox checkBox) checkBox.CheckedChanged += Changed;
+            if (control is DateTimePicker dateTimePicker) dateTimePicker.ValueChanged += Changed;
+        }
+    }
+
+    /// <summary>Sets editor values from loaded data without marking them as user edits.</summary>
+    protected void SetTrackedValues(Action setValues)
+    {
+        _trackingSuppressed = true;
+        try { setValues(); }
+        finally
+        {
+            _hasTrackedChanges = false;
+            _trackingSuppressed = false;
+        }
+    }
+
+    protected void MarkTrackedChangesClean() => _hasTrackedChanges = false;
+    protected void MarkTrackedChangesDirty() => _hasTrackedChanges = true;
+    public virtual void AcknowledgeDiscardedChanges() => _hasTrackedChanges = false;
 
     protected PageBase(string title)
     {
@@ -55,11 +103,11 @@ public abstract class PageBase : UserControl
         p.Margin = new Padding(16, 0, 0, 0);
 
         Control? lastControl = controls.Length > 0 ? controls[^1] : null;
-        if (lastControl is FlowLayoutPanel bottomPanel)
+        var bottomPanel = lastControl as FlowLayoutPanel;
+        if (bottomPanel != null)
         {
             bottomPanel.Dock = DockStyle.Bottom;
             bottomPanel.Padding = new Padding(0, 10, 0, 0);
-            p.Controls.Add(bottomPanel);
         }
 
         var flow = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoScroll = true };
@@ -72,14 +120,22 @@ public abstract class PageBase : UserControl
         }
         void Stretch()
         {
-            var w = flow.ClientSize.Width;
+            var w = Math.Max(120, flow.ClientSize.Width - flow.Padding.Horizontal);
             foreach (Control c in flow.Controls)
             {
-                if (c is Panel) c.Width = Math.Max(120, w - c.Margin.Horizontal);
+                // Field panels and paired field tables must follow the editor width.
+                // Keeping their design-time widths caused a horizontal scrollbar in
+                // the product editor even when the form had enough vertical space.
+                if (c is Panel || string.Equals(c.Tag as string, "fill", StringComparison.Ordinal))
+                    c.Width = Math.Max(120, w - c.Margin.Horizontal);
             }
         }
         flow.Layout += (_, _) => Stretch();
+        // Add the fill region first and footer second. WinForms docks overlapping
+        // controls according to z-order; the previous order let the fill panel
+        // cover action rows such as Save, Delete, and Warranty update.
         p.Controls.Add(flow);
+        if (bottomPanel != null) p.Controls.Add(bottomPanel);
         return p;
     }
 
@@ -107,15 +163,44 @@ public abstract class PageBase : UserControl
     /// <summary>Gọi hành động sau khi người dùng ngừng gõ 300 ms (tìm kiếm không giật).</summary>
     protected static void Debounce(TextBox box, Action action)
     {
-        var timer = new System.Windows.Forms.Timer { Interval = 300 };
-        timer.Tick += (_, _) => { timer.Stop(); action(); };
-        box.TextChanged += (_, _) => { timer.Stop(); timer.Start(); };
-        box.Disposed += (_, _) => timer.Dispose();
+        var state = new DebounceState { Timer = new System.Windows.Forms.Timer { Interval = 300 } };
+        state.Timer.Tick += (_, _) => { state.Timer.Stop(); if (!box.IsDisposed) action(); };
+        box.TextChanged += (_, _) =>
+        {
+            if (state.SuppressTextChanged) return;
+            state.Timer.Stop();
+            state.Timer.Start();
+        };
+        box.Disposed += (_, _) => state.Timer.Dispose();
+        DebounceStates.Add(box, state);
+    }
+
+    /// <summary>Sets a search value without allowing a pending/programmatic change to trigger a second search.</summary>
+    protected static void SetSearchWithoutDebounce(TextBox box, string value)
+    {
+        if (!DebounceStates.TryGetValue(box, out var state))
+        {
+            box.Text = value;
+            return;
+        }
+
+        state.Timer.Stop();
+        state.SuppressTextChanged = true;
+        try { box.Text = value; }
+        finally { state.SuppressTextChanged = false; }
+    }
+
+    /// <summary>Runs a pending debounced search now so keyboard actions use the current query results.</summary>
+    protected static void FlushDebounce(TextBox box, Action action)
+    {
+        if (!DebounceStates.TryGetValue(box, out var state) || !state.Timer.Enabled) return;
+        state.Timer.Stop();
+        if (!box.IsDisposed) action();
     }
 
     /// <summary>Nút "Xuất Excel" cho một lưới dữ liệu.</summary>
-    protected static Components.ModernButton ExportButton(DataGridView grid, string title)
-        => Theme.GhostButton("Xuất Excel", 100, (_, _) =>
+    protected static Components.ModernButton ExportButton(DataGridView grid, string title, int width = 100)
+        => Theme.GhostButton("Xuất Excel", width, (_, _) =>
         {
             if (grid.Rows.Count == 0) { Msg.Warn("Không có dữ liệu để xuất."); return; }
             using var dlg = new SaveFileDialog { Filter = "Excel|*.xlsx", FileName = $"{title}_{DateTime.Now:yyyyMMdd_HHmm}.xlsx" };

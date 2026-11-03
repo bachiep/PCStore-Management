@@ -5,10 +5,10 @@ SET NAMES utf8mb4;
 
 /* ---------- Nhân viên & tài khoản ---------- */
 INSERT INTO NhanVien (HoTen, GioiTinh, NgaySinh, SDT, Email, DiaChi, ChucVu) VALUES
- ('Lưu Đức Hiệp',    'Nam', '2005-04-26', '0912345678', 'hiep@pcstore.vn',  'Hà Nội',   'Quản lý'),
- ('Lê Mạnh Tuấn',    'Nam', '2005-10-22', '0987654321', 'tuan@pcstore.vn',  'Hà Nội',   'Nhân viên bán hàng'),
- ('Nguyễn Thu Trang','Nữ',  '2003-07-12', '0934567890', 'trang@pcstore.vn', 'Bắc Ninh', 'Nhân viên bán hàng'),
- ('Phạm Văn Long',   'Nam', '2001-01-30', '0976543210', 'long@pcstore.vn',  'Hưng Yên', 'Kỹ thuật viên');
+ ('Quản trị viên mẫu', 'Nam', '1990-01-01', '0000000001', 'admin@example.invalid',       'Địa chỉ mẫu 01', 'Quản lý'),
+ ('Nhân viên mẫu 02', 'Nữ',  '1995-02-02', '0000000002', 'nhanvien02@example.invalid', 'Địa chỉ mẫu 02', 'Nhân viên bán hàng'),
+ ('Nhân viên mẫu 03', 'Nam', '1998-03-03', '0000000003', 'nhanvien03@example.invalid', 'Địa chỉ mẫu 03', 'Nhân viên bán hàng'),
+ ('Kỹ thuật viên mẫu', 'Nam', '2001-01-30', '0000000004', 'kythuat@example.invalid', 'Địa chỉ mẫu 04', 'Kỹ thuật viên');
 
 -- Hash BCrypt (cost 11) của mật khẩu "123456"
 INSERT INTO TaiKhoan (TenDangNhap, MatKhauHash, MaNV, VaiTro) VALUES
@@ -62,24 +62,43 @@ INSERT INTO SanPham (TenSP, MaDM, MaHang, GiaNhap, GiaBan, ThoiGianBH, MoTa) VAL
  ('Logitech G435',                     12, 14, 1250000,  1590000, 24, 'Tai nghe không dây'),
  ('Razer BlackShark V2 X',             12, 15,  850000,  1090000, 24, '7.1 surround');
 
+/* Ảnh thật minh họa theo nhóm hàng; không ghi đè ảnh riêng đã có của người dùng. */
+UPDATE SanPham
+SET HinhAnh = CASE MaDM
+    WHEN 1 THEN 'product_cpu.jpg'
+    WHEN 2 THEN 'product_mainboard.jpg'
+    WHEN 3 THEN 'product_ram.jpg'
+    WHEN 4 THEN 'product_gpu.jpg'
+    WHEN 5 THEN 'product_ssd.jpg'
+    WHEN 6 THEN 'product_psu.jpg'
+    WHEN 7 THEN 'product_case.jpg'
+    WHEN 8 THEN 'product_cooler.jpg'
+    WHEN 9 THEN 'product_monitor.jpg'
+    WHEN 10 THEN 'product_keyboard.jpg'
+    WHEN 11 THEN 'product_mouse.jpg'
+    WHEN 12 THEN 'product_headset.jpg'
+    ELSE HinhAnh
+END
+WHERE HinhAnh IS NULL OR HinhAnh = '';
+
 /* ---------- Nhà cung cấp ---------- */
 INSERT INTO NhaCungCap (TenNCC, SDT, Email, DiaChi) VALUES
- ('Công ty TNHH Phân phối Viết Sơn',  '02438686868', 'sales@vietson.vn', 'Cầu Giấy, Hà Nội'),
- ('Công ty CP Thế giới số Digiworld', '02839290059', 'contact@dgw.vn',   'Quận 3, TP.HCM'),
- ('Công ty TNHH Tin học Mai Hoàng',   '02436285999', 'info@maihoang.vn', 'Đống Đa, Hà Nội');
+ ('Nhà cung cấp mẫu 01', '0000000101', 'nhacungcap01@example.invalid', 'Địa chỉ mẫu 01'),
+ ('Nhà cung cấp mẫu 02', '0000000102', 'nhacungcap02@example.invalid', 'Địa chỉ mẫu 02'),
+ ('Nhà cung cấp mẫu 03', '0000000103', 'nhacungcap03@example.invalid', 'Địa chỉ mẫu 03');
 
 /* ---------- Khách hàng ---------- */
 INSERT INTO KhachHang (HoTen, SDT, DiaChi, Email) VALUES
- ('Trần Minh Khoa',  '0901111222', 'Thanh Xuân, Hà Nội',   'khoa@gmail.com'),
- ('Đỗ Thị Hương',    '0902222333', 'Hà Đông, Hà Nội',      'huong@gmail.com'),
- ('Vũ Quốc Bảo',     '0903333444', 'Long Biên, Hà Nội',    NULL),
- ('Hoàng Anh Dũng',  '0904444555', 'Nam Từ Liêm, Hà Nội',  'dung@gmail.com'),
- ('Bùi Thanh Hà',    '0905555666', 'Hoàng Mai, Hà Nội',    NULL),
- ('Ngô Đức Mạnh',    '0906666777', 'Bắc Từ Liêm, Hà Nội',  'manh@gmail.com'),
- ('Lý Thị Mai',      '0907777888', 'Gia Lâm, Hà Nội',      NULL),
- ('Đặng Văn Hùng',   '0908888999', 'Ba Đình, Hà Nội',      'hung@gmail.com'),
- ('Phan Thùy Linh',  '0909999000', 'Tây Hồ, Hà Nội',       NULL),
- ('Cao Minh Tú',     '0910000111', 'Đông Anh, Hà Nội',     'tu@gmail.com');
+ ('Khách hàng mẫu 01', '0000000201', 'Địa chỉ mẫu 01', 'khachhang01@example.invalid'),
+ ('Khách hàng mẫu 02', '0000000202', 'Địa chỉ mẫu 02', 'khachhang02@example.invalid'),
+ ('Khách hàng mẫu 03', '0000000203', 'Địa chỉ mẫu 03', NULL),
+ ('Khách hàng mẫu 04', '0000000204', 'Địa chỉ mẫu 04', 'khachhang04@example.invalid'),
+ ('Khách hàng mẫu 05', '0000000205', 'Địa chỉ mẫu 05', NULL),
+ ('Khách hàng mẫu 06', '0000000206', 'Địa chỉ mẫu 06', 'khachhang06@example.invalid'),
+ ('Khách hàng mẫu 07', '0000000207', 'Địa chỉ mẫu 07', NULL),
+ ('Khách hàng mẫu 08', '0000000208', 'Địa chỉ mẫu 08', 'khachhang08@example.invalid'),
+ ('Khách hàng mẫu 09', '0000000209', 'Địa chỉ mẫu 09', NULL),
+ ('Khách hàng mẫu 10', '0000000210', 'Địa chỉ mẫu 10', 'khachhang10@example.invalid');
 
 /* ---------- Sinh phiếu nhập đầu kỳ, serial, hóa đơn ngẫu nhiên 12 tháng, bảo hành ---------- */
 DROP PROCEDURE IF EXISTS sp_SeedDemo;
@@ -122,9 +141,9 @@ BEGIN
         SET v_ncc = v_ncc + 1;
     END WHILE;
 
-    WHILE v_i <= 200 DO
-        SET v_ngay = DATE_ADD(DATE_ADD(DATE(DATE_SUB(NOW(), INTERVAL FLOOR(RAND() * 365) DAY)), INTERVAL 8 HOUR),
-                              INTERVAL FLOOR(RAND() * 720) MINUTE);
+    WHILE v_i <= 60 DO
+        SET v_ngay = LEAST(NOW(), DATE_ADD(DATE_ADD(DATE(DATE_SUB(NOW(), INTERVAL FLOOR(RAND() * 365) DAY)), INTERVAL 8 HOUR),
+                                                   INTERVAL FLOOR(RAND() * 720) MINUTE));
         SET v_kh = IF(FLOOR(RAND() * 4) = 0, NULL, (SELECT MaKH FROM KhachHang ORDER BY RAND() LIMIT 1));
         SET v_nv = (SELECT MaNV FROM NhanVien WHERE MaNV <= 3 ORDER BY RAND() LIMIT 1);
 
@@ -141,14 +160,22 @@ BEGIN
                         ORDER BY RAND() LIMIT 1);
             IF v_sp IS NOT NULL THEN
                 SET v_bh = (SELECT ThoiGianBH FROM SanPham WHERE MaSP = v_sp);
-                INSERT INTO ChiTietHoaDon (MaHD, MaSP, SoLuong, DonGia)
-                SELECT v_hd, MaSP, v_sl, GiaBan FROM SanPham WHERE MaSP = v_sp;
+                INSERT INTO ChiTietHoaDon (MaHD, MaSP, SoLuong, DonGia, TenSPKhiBan, ThoiGianBHKhiBan)
+                SELECT v_hd, MaSP, v_sl, GiaBan, TenSP, ThoiGianBH
+                FROM SanPham WHERE MaSP = v_sp;
 
                 UPDATE SanPhamSerial
-                SET MaHD = v_hd, NgayBan = v_ngay, HanBH = DATE_ADD(DATE(v_ngay), INTERVAL v_bh MONTH), TrangThai = 'DaBan'
+                SET MaHD = v_hd, NgayBan = v_ngay,
+                    HanBH = CASE WHEN v_bh > 0 THEN DATE_ADD(DATE(v_ngay), INTERVAL v_bh MONTH) ELSE NULL END,
+                    TrangThai = 'DaBan'
                 WHERE MaSP = v_sp AND TrangThai = 'TrongKho'
                 ORDER BY Serial
                 LIMIT v_sl;
+
+                INSERT INTO LichSuBanSerial (MaHD, MaSP, Serial, NgayBan, HanBH)
+                SELECT MaHD, MaSP, Serial, NgayBan, HanBH
+                FROM SanPhamSerial
+                WHERE MaHD = v_hd AND MaSP = v_sp;
             END IF;
             SET v_j = v_j + 1;
         END WHILE;
@@ -171,9 +198,9 @@ BEGIN
     SET p.SoLuongTon = (SELECT COUNT(*) FROM SanPhamSerial s WHERE s.MaSP = p.MaSP AND s.TrangThai = 'TrongKho');
 
     -- Vài phiếu bảo hành đã hoàn tất
-    INSERT INTO PhieuBaoHanh (Serial, MaKH, MaNV, NgayNhan, MoTaLoi, NgayTra, KetQua, TrangThai)
+    INSERT INTO PhieuBaoHanh (Serial, MaKH, MaNV, NgayNhan, MoTaLoi, NgayTra, KetQua, TrangThai, MaHDLucTiepNhan)
     SELECT s.Serial, h.MaKH, 4, DATE_ADD(s.NgayBan, INTERVAL 20 DAY), 'Máy không lên hình / lỗi phần cứng',
-           DATE_ADD(s.NgayBan, INTERVAL 27 DAY), 'Đã đổi sản phẩm mới cùng loại', 'Đã trả khách'
+           DATE_ADD(s.NgayBan, INTERVAL 27 DAY), 'Đã đổi sản phẩm mới cùng loại', 'Đã trả khách', h.MaHD
     FROM SanPhamSerial s JOIN HoaDon h ON h.MaHD = s.MaHD
     WHERE s.TrangThai = 'DaBan' AND h.MaKH IS NOT NULL AND s.NgayBan < DATE_SUB(NOW(), INTERVAL 2 MONTH)
     ORDER BY s.NgayBan
@@ -184,8 +211,8 @@ BEGIN
                     WHERE s.TrangThai = 'DaBan' AND h.MaKH IS NOT NULL AND s.HanBH > CURDATE()
                       AND s.Serial NOT IN (SELECT Serial FROM PhieuBaoHanh)
                     ORDER BY s.NgayBan DESC LIMIT 1);
-    INSERT INTO PhieuBaoHanh (Serial, MaKH, MaNV, MoTaLoi)
-    SELECT v_serial, h.MaKH, 4, 'Sản phẩm phát tiếng kêu lạ khi hoạt động'
+    INSERT INTO PhieuBaoHanh (Serial, MaKH, MaNV, MoTaLoi, MaHDLucTiepNhan)
+    SELECT v_serial, h.MaKH, 4, 'Sản phẩm phát tiếng kêu lạ khi hoạt động', h.MaHD
     FROM SanPhamSerial s JOIN HoaDon h ON h.MaHD = s.MaHD WHERE s.Serial = v_serial;
     UPDATE SanPhamSerial SET TrangThai = 'DangBaoHanh' WHERE Serial = v_serial;
 

@@ -36,7 +36,7 @@ public class ucThongKe : PageBase
                     {
                         _lastHoverMonth = idx;
                         var item = _currentDataThang[idx];
-                        _chartTip.Show($"{item.Nhan}:\n• Doanh thu: {item.DoanhThu:N0} ₫\n• Lợi nhuận: {item.LoiNhuan:N0} ₫\n• Số HĐ: {item.SoHoaDon}", _plot, e.X + 15, e.Y + 15, 3000);
+                        _chartTip.Show($"{item.Nhan}:\n• Doanh thu thuần: {item.DoanhThu:N0} ₫\n• Lợi nhuận ước tính (giá nhập hiện tại): {item.LoiNhuan:N0} ₫\n• Số HĐ: {item.SoHoaDon}", _plot, e.X + 15, e.Y + 15, 3000);
                     }
                     return;
                 }
@@ -55,9 +55,9 @@ public class ucThongKe : PageBase
 
         _gridTop.AutoGenerateColumns = false;
         _gridTop.Columns.AddRange(
-            Theme.Col("TenSP", "Sản phẩm", weight: 2f),
-            Theme.Col("SoLuongBan", "Đã bán", weight: 0.8f, right: true),
-            Theme.Col("DoanhThu", "Doanh thu", weight: 1.2f, format: "N0", right: true)
+            Theme.Col("TenSP", "Sản phẩm", weight: 4.2f),
+            Theme.Col("SoLuongBan", "Đã bán", weight: 0.8f, center: true),
+            Theme.Col("DoanhThu", "Doanh thu thuần", weight: 1.2f, format: "N0", right: true)
         );
 
         _gridDoanhThu.AutoGenerateColumns = false;
@@ -65,7 +65,7 @@ public class ucThongKe : PageBase
             Theme.Col("Nhan", "Tháng", weight: 1f),
             Theme.Col("SoHoaDon", "Số HĐ", weight: 1f, right: true),
             Theme.Col("DoanhThu", "Doanh thu", weight: 1.5f, format: "N0", right: true),
-            Theme.Col("LoiNhuan", "Lợi nhuận (Ước tính)", weight: 1.5f, format: "N0", right: true)
+            Theme.Col("LoiNhuan", "LN ước tính*", weight: 1.5f, format: "N0", right: true)
         );
 
         var btnExcel = Theme.PrimaryButton("Xuất Excel", 120, (_, _) => XuatExcel());
@@ -78,8 +78,8 @@ public class ucThongKe : PageBase
         AddRow(Toolbar(pnlL, btnExcel, btnPdf));
 
         var topPanel = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1 };
-        topPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 60));
-        topPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 40));
+        topPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 48));
+        topPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 52));
         
         var pnlChart = Theme.CardPanel(); pnlChart.Dock = DockStyle.Fill;
         pnlChart.Controls.Add(_plot);
@@ -96,7 +96,7 @@ public class ucThongKe : PageBase
         AddRow(topPanel, fill: true);
 
         var pnlGridDt = Theme.CardPanel(); pnlGridDt.Dock = DockStyle.Fill; pnlGridDt.Height = 250;
-        var lblDt = new System.Windows.Forms.Label { Text = "Chi tiết doanh thu theo tháng", Font = Theme.H2, AutoSize = true, Margin = new Padding(10) };
+        var lblDt = new System.Windows.Forms.Label { Text = "Doanh thu thuần theo tháng • * Lợi nhuận ước tính theo giá nhập hiện tại", Font = Theme.H2, AutoSize = true, Margin = new Padding(10) };
         lblDt.Dock = DockStyle.Top;
         _gridDoanhThu.Dock = DockStyle.Fill;
         pnlGridDt.Controls.Add(_gridDoanhThu); pnlGridDt.Controls.Add(lblDt);
@@ -129,18 +129,18 @@ public class ucThongKe : PageBase
 
             var barDt = _plot.Plot.Add.Bars(posDt, dtValues);
             foreach (var b in barDt.Bars) { b.FillColor = ScottPlot.Color.FromHex("#3B82F6"); b.Size = 0.35; }
-            barDt.LegendText = "Doanh thu";
+            barDt.LegendText = "Doanh thu thuần";
 
             var barLn = _plot.Plot.Add.Bars(posLn, lnValues);
             foreach (var b in barLn.Bars) { b.FillColor = ScottPlot.Color.FromHex("#10B981"); b.Size = 0.35; }
-            barLn.LegendText = "Lợi nhuận";
+            barLn.LegendText = "Lợi nhuận ước tính*";
 
             _currentDataThang = dataThang;
             var labels = dataThang.Select(x => x.Nhan).ToArray();
             _plot.Plot.Axes.Bottom.SetTicks(positions, labels);
 
             _plot.Plot.ShowLegend(ScottPlot.Alignment.UpperRight);
-            _plot.Plot.Title($"Biểu đồ doanh thu & lợi nhuận năm {nam}");
+            _plot.Plot.Title($"Doanh thu thuần & LN ước tính* năm {nam}");
             _plot.Plot.YLabel("Số tiền (Triệu ₫)");
             
             _plot.Refresh();

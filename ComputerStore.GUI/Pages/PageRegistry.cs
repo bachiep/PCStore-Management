@@ -1,4 +1,5 @@
 using ComputerStore.GUI.Forms;
+using ComputerStore.BLL;
 
 namespace ComputerStore.GUI.Pages;
 
@@ -8,15 +9,16 @@ public record NavItem(string Key, string Group, string Text, bool AdminOnly, Fun
 /// <summary>Danh sách tất cả màn hình của ứng dụng (thứ tự = thứ tự trên menu).</summary>
 public static class PageRegistry
 {
-    public static string DefaultKey => Items[0].Key;
+    /// <summary>Admin lands on overview; employees start at POS and never enter admin-only reports.</summary>
+    public static string DefaultKey => Session.IsAdmin ? "dashboard" : "banhang";
 
     public static readonly List<NavItem> Items = new()
     {
-        new("dashboard", "Báo cáo",   "Dashboard",         false, _ => new ucDashboard()),
+        new("dashboard", "Báo cáo",   "Dashboard",         true,  _ => new ucDashboard()),
         new("thongke",   "Báo cáo",   "Thống kê",          true,  _ => new ucThongKe()),
         new("sanpham",   "Kho hàng",  "Sản phẩm",          false, _ => new ucSanPham()),
-        new("danhmuc",   "Kho hàng",  "Danh mục & Hãng",   false, _ => new ucDanhMucHang()),
-        new("ncc",       "Kho hàng",  "Nhà cung cấp",      false, _ => new ucNhaCungCap()),
+        new("danhmuc",   "Kho hàng",  "Danh mục & Hãng",   true,  _ => new ucDanhMucHang()),
+        new("ncc",       "Kho hàng",  "Nhà cung cấp",      true,  _ => new ucNhaCungCap()),
         new("nhapkho",   "Kho hàng",  "Nhập kho",          true,  _ => new ucNhapKho()),
         new("banhang",   "Bán hàng",  "Bán hàng (POS)",    false, _ => new ucBanHang()),
         new("hoadon",    "Bán hàng",  "Hóa đơn",           false, _ => new ucHoaDon()),

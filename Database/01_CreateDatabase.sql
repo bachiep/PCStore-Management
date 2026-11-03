@@ -3,8 +3,7 @@
    01 - Tạo CSDL và các bảng (MySQL 8.0+)
    Chạy:  mysql -h 127.0.0.1 -P 3307 -u root < 01_CreateDatabase.sql
    ========================================================= */
-DROP DATABASE IF EXISTS QLCuaHangLinhKien;
-CREATE DATABASE QLCuaHangLinhKien CHARACTER SET utf8mb4 COLLATE utf8mb4_vietnamese_ci;
+CREATE DATABASE IF NOT EXISTS QLCuaHangLinhKien CHARACTER SET utf8mb4 COLLATE utf8mb4_vietnamese_ci;
 USE QLCuaHangLinhKien;
 
 /* ---------- Nhân viên & tài khoản ---------- */
@@ -124,10 +123,12 @@ CREATE TABLE HoaDon (
 );
 
 CREATE TABLE ChiTietHoaDon (
-    MaHD    INT           NOT NULL,
-    MaSP    INT           NOT NULL,
-    SoLuong INT           NOT NULL,
-    DonGia  DECIMAL(18,0) NOT NULL,
+    MaHD             INT           NOT NULL,
+    MaSP             INT           NOT NULL,
+    SoLuong          INT           NOT NULL,
+    DonGia           DECIMAL(18,0) NOT NULL,
+    TenSPKhiBan      VARCHAR(200)  NULL,
+    ThoiGianBHKhiBan INT           NULL,
     PRIMARY KEY (MaHD, MaSP),
     CONSTRAINT FK_CTHD_HD FOREIGN KEY (MaHD) REFERENCES HoaDon(MaHD),
     CONSTRAINT FK_CTHD_SP FOREIGN KEY (MaSP) REFERENCES SanPham(MaSP),
@@ -151,6 +152,20 @@ CREATE TABLE SanPhamSerial (
     INDEX IX_Serial_MaSP (MaSP, TrangThai)
 );
 
+/* Lịch sử bán serial không bị xóa khi hóa đơn bị hủy hoặc serial được bán lại. */
+CREATE TABLE LichSuBanSerial (
+    MaHD    INT         NOT NULL,
+    MaSP    INT         NOT NULL,
+    Serial  VARCHAR(50) NOT NULL,
+    NgayBan DATETIME    NOT NULL,
+    HanBH   DATE        NULL,
+    PRIMARY KEY (MaHD, Serial),
+    INDEX IX_LichSuBanSerial_Serial (Serial),
+    CONSTRAINT FK_LSBS_HD FOREIGN KEY (MaHD) REFERENCES HoaDon(MaHD),
+    CONSTRAINT FK_LSBS_SP FOREIGN KEY (MaSP) REFERENCES SanPham(MaSP),
+    CONSTRAINT FK_LSBS_Serial FOREIGN KEY (Serial) REFERENCES SanPhamSerial(Serial)
+);
+
 CREATE TABLE PhieuBaoHanh (
     MaPBH     INT AUTO_INCREMENT PRIMARY KEY,
     Serial    VARCHAR(50)  NOT NULL,
@@ -161,8 +176,18 @@ CREATE TABLE PhieuBaoHanh (
     NgayTra   DATETIME     NULL,
     KetQua    VARCHAR(500) NULL,
     TrangThai VARCHAR(30)  NOT NULL DEFAULT 'Đang xử lý',
+    MaHDLucTiepNhan INT    NULL,
     CONSTRAINT FK_PBH_Serial FOREIGN KEY (Serial) REFERENCES SanPhamSerial(Serial),
     CONSTRAINT FK_PBH_KH     FOREIGN KEY (MaKH)   REFERENCES KhachHang(MaKH),
     CONSTRAINT FK_PBH_NV     FOREIGN KEY (MaNV)   REFERENCES NhanVien(MaNV),
+    CONSTRAINT FK_PBH_HD     FOREIGN KEY (MaHDLucTiepNhan) REFERENCES HoaDon(MaHD),
     CONSTRAINT CK_PBH_TT CHECK (TrangThai IN ('Đang xử lý', 'Đã trả khách', 'Từ chối'))
 );
+
+/* Phiên bản schema giúp ứng dụng phát hiện database chưa chạy đủ migration. */
+CREATE TABLE AppSchemaVersion (
+    Id            TINYINT PRIMARY KEY,
+    SchemaVersion INT NOT NULL,
+    CONSTRAINT CK_AppSchemaVersion_Id CHECK (Id = 1)
+);
+INSERT INTO AppSchemaVersion (Id, SchemaVersion) VALUES (1, 7);

@@ -136,10 +136,33 @@ public static class Theme
         return f;
     }
 
+    /// <summary>Visible search hint that renders consistently across Windows themes.</summary>
+    public static Control SearchField(TextBox input, string hint)
+    {
+        var host = new Panel { Width = input.Width + 26, Height = 34, Margin = input.Margin, BackColor = Color.White, BorderStyle = BorderStyle.FixedSingle };
+        input.BorderStyle = BorderStyle.None;
+        input.Margin = new Padding(0);
+        input.Dock = DockStyle.Fill;
+        input.Padding = new Padding(28, 0, 4, 0);
+        input.PlaceholderText = "";
+        var glyph = new Label { Text = "⌕", AutoSize = true, Font = new Font("Segoe UI Symbol", 12f), ForeColor = Muted, Location = new Point(7, 5), BackColor = Color.Transparent };
+        var watermark = new Label { Text = hint, AutoSize = true, Font = Small, ForeColor = Muted, Location = new Point(28, 9), BackColor = Color.Transparent, UseMnemonic = false };
+        void SyncWatermark() => watermark.Visible = input.TextLength == 0 && !input.Focused;
+        input.Enter += (_, _) => { glyph.Visible = false; watermark.Visible = false; };
+        input.Leave += (_, _) => { glyph.Visible = input.TextLength == 0; SyncWatermark(); };
+        input.TextChanged += (_, _) => { glyph.Visible = input.TextLength == 0 && !input.Focused; SyncWatermark(); };
+        glyph.Click += (_, _) => input.Focus();
+        watermark.Click += (_, _) => input.Focus();
+        host.Controls.Add(input);
+        host.Controls.Add(glyph);
+        host.Controls.Add(watermark);
+        return host;
+    }
+
     /// <summary>Nhãn + ô nhập xếp dọc, dùng cho form chi tiết. Tag = "fill" để EditorCard tự giãn theo chiều rộng khung.</summary>
     public static Control Field(string caption, Control input, int width = 220)
     {
-        var f = new Panel { Width = width, Margin = new Padding(0, 0, 12, 14), BackColor = Color.Transparent, Tag = "fill" };
+        var f = new Panel { Width = width, Margin = new Padding(0, 0, 12, 8), BackColor = Color.Transparent, Tag = "fill" };
         var cap = new Label { Text = caption, AutoSize = false, Height = 22, Dock = DockStyle.Top, Font = Small, ForeColor = Muted, UseMnemonic = false, TextAlign = ContentAlignment.BottomLeft, Padding = new Padding(0, 0, 0, 4) };
         input.Margin = new Padding(0);
         input.Dock = DockStyle.Top;
@@ -172,7 +195,8 @@ public static class Theme
         {
             if (g.Rows.Count > 0) return;
             var r = new Rectangle(0, g.ColumnHeadersHeight, g.Width, Math.Max(0, g.Height - g.ColumnHeadersHeight));
-            TextRenderer.DrawText(e.Graphics, text, Base, r, Muted, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+            TextRenderer.DrawText(e.Graphics, text, Base, Rectangle.Inflate(r, -12, -8), Muted,
+                TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.WordBreak | TextFormatFlags.EndEllipsis);
         };
     }
 
@@ -196,10 +220,13 @@ public static class Theme
         g.RowHeadersVisible = false;
         g.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
         g.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+        // Keep data tables visually aligned: one consistent row height, with
+        // clipped values available in the built-in cell tooltip.
+        g.DefaultCellStyle.WrapMode = DataGridViewTriState.False;
+        g.AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.None;
         g.EnableHeadersVisualStyles = false;
-        g.ColumnHeadersBorderStyle = DataGridViewHeaderBorderStyle.None;
-        g.ColumnHeadersBorderStyle = DataGridViewHeaderBorderStyle.None;
-        g.ColumnHeadersHeight = 40; // Tiêu đề cao hơn
+        g.ColumnHeadersBorderStyle = DataGridViewHeaderBorderStyle.Single;
+        g.ColumnHeadersHeight = 44; // Allow short headers to wrap instead of clipping.
         g.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
         g.ColumnHeadersDefaultCellStyle.BackColor = ColorTranslator.FromHtml("#F1F5F9"); // Màu nền tiêu đề đậm hơn 1 chút
         g.ColumnHeadersDefaultCellStyle.ForeColor = Muted;
@@ -207,56 +234,129 @@ public static class Theme
         g.ColumnHeadersDefaultCellStyle.SelectionForeColor = Muted;
         g.ColumnHeadersDefaultCellStyle.Font = Bold;
         g.ColumnHeadersDefaultCellStyle.Padding = new Padding(8, 0, 8, 0);
-        g.ColumnHeadersDefaultCellStyle.WrapMode = DataGridViewTriState.False;
-        g.ColumnHeadersDefaultCellStyle.WrapMode = DataGridViewTriState.False;
+        g.ColumnHeadersDefaultCellStyle.WrapMode = DataGridViewTriState.True;
         g.DefaultCellStyle.Font = Base;
         g.DefaultCellStyle.ForeColor = Text;
         g.DefaultCellStyle.SelectionBackColor = ColorTranslator.FromHtml("#DBEAFE");
         g.DefaultCellStyle.SelectionForeColor = Text;
-        g.DefaultCellStyle.Padding = new Padding(8, 0, 8, 0); // Tăng padding
+        g.DefaultCellStyle.Padding = new Padding(5, 0, 5, 0);
+        g.ShowCellToolTips = true;
+        g.CellToolTipTextNeeded += (_, e) =>
+        {
+            if (e.ColumnIndex < 0) return;
+            if (e.RowIndex < 0)
+            {
+                e.ToolTipText = g.Columns[e.ColumnIndex].HeaderText;
+                return;
+            }
+
+            var cell = g.Rows[e.RowIndex].Cells[e.ColumnIndex];
+            var value = Convert.ToString(cell.FormattedValue, Vi);
+            if (!string.IsNullOrWhiteSpace(value) && TextRenderer.MeasureText(value, g.Font).Width > cell.Size.Width - 16)
+                e.ToolTipText = value;
+        };
+        g.CellFormatting += (_, e) =>
+        {
+            if (e.RowIndex < 0 || e.ColumnIndex < 0) return;
+            if (g.Columns[e.ColumnIndex].DataPropertyName == "VaiTro" && e.Value is string role && role == "NhanVien")
+            {
+                e.Value = "Nhân viên";
+                e.FormattingApplied = true;
+            }
+        };
         
         g.AlternatingRowsDefaultCellStyle.BackColor = ColorTranslator.FromHtml("#F8FAFC"); // Màu nền xen kẽ để dễ đọc
 
-        g.RowTemplate.Height = 36; // Tăng chiều cao dòng cho thoáng
-        g.CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal;
+        g.RowTemplate.Height = 36;
+        g.CellBorderStyle = DataGridViewCellBorderStyle.Single;
         g.GridColor = Border;
         typeof(DataGridView).InvokeMember("DoubleBuffered", BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.SetProperty, null, g, new object[] { true });
     }
 
     public static DataGridViewTextBoxColumn Col(string name, string header, string? dataProp = null, float weight = 1f,
-        string? format = null, bool right = false)
+        string? format = null, bool right = false, bool center = false)
     {
         var c = new DataGridViewTextBoxColumn
         {
             Name = name, HeaderText = header, DataPropertyName = dataProp ?? name, FillWeight = weight * 100f, SortMode = DataGridViewColumnSortMode.Automatic
         };
+        c.DefaultCellStyle.WrapMode = DataGridViewTriState.False;
         c.MinimumWidth = weight < 0.6f ? 42 : 60;
+        if (header is "Điện thoại" or "SĐT") c.MinimumWidth = 120;
+        // Keep email readable without letting it take nearly half of narrow
+        // list/detail layouts away from the supplier name and address.
+        if (header == "Email") c.MinimumWidth = 160;
+        if (header == "Tài khoản") c.MinimumWidth = 100;
+        if (header == "Vai trò") c.MinimumWidth = 90;
         if (format != null) c.DefaultCellStyle.Format = format;
         c.DefaultCellStyle.FormatProvider = Vi;
-        if (right)
+        if (center || (!right && IsCenteredColumn(header, format)))
+        {
+            c.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
+            c.HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleCenter;
+        }
+        else if (right)
         {
             c.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
             c.HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleRight;
         }
         return c;
     }
+
+    private static bool IsCenteredColumn(string header, string? format)
+        => header is "Mã" or "Mã SP" or "Mã HĐ" or "Mã phiếu" or "SL" or "Số HĐ" or "Đã bán"
+           || (format?.StartsWith("dd/", StringComparison.OrdinalIgnoreCase) ?? false)
+           || header is "Ngày" or "Ngày nhập" or "Ngày lập" or "Ngày nhận" or "Ngày trả" or "Hạn BH" or "Tháng";
 }
 
 /// <summary>Hộp thoại thông báo thống nhất.</summary>
 public static class Msg
 {
-    public static void Info(string text) => MessageBox.Show(text, "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
-    public static void Warn(string text) => MessageBox.Show(text, "Cảnh báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-    public static void Error(string text) => MessageBox.Show(text, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
-    public static bool Confirm(string text) => MessageBox.Show(text, "Xác nhận", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes;
+    public static bool NonInteractive { get; set; }
+
+    public static void Info(string text)
+    {
+        if (NonInteractive) { Console.WriteLine("[INFO] " + text); return; }
+        MessageBox.Show(text, "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+    }
+
+    public static void Warn(string text)
+    {
+        if (NonInteractive) { Console.Error.WriteLine("[WARN] " + text); return; }
+        MessageBox.Show(text, "Cảnh báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+    }
+
+    public static void Error(string text)
+    {
+        if (NonInteractive) { Console.Error.WriteLine("[ERROR] " + text); return; }
+        MessageBox.Show(text, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+    }
+
+    public static bool Confirm(string text)
+    {
+        if (NonInteractive) throw new InvalidOperationException("A confirmation dialog was requested in non-interactive mode: " + text);
+        return MessageBox.Show(text, "Xác nhận", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes;
+    }
 
     /// <summary>Chạy một hành động; lỗi nghiệp vụ hiện cảnh báo, lỗi hệ thống hiện thông báo lỗi. Trả về true nếu thành công.</summary>
     public static bool Run(Action action)
     {
         try { action(); return true; }
-        catch (BusinessException ex) { Warn(ex.Message); }
-        catch (MySqlConnector.MySqlException ex) { Error("Lỗi cơ sở dữ liệu: " + ex.Message); }
-        catch (Exception ex) { Error("Có lỗi xảy ra: " + ex.Message); }
+        catch (BusinessException ex)
+        {
+            if (NonInteractive) throw;
+            Warn(ex.Message);
+        }
+        catch (MySqlConnector.MySqlException ex)
+        {
+            if (NonInteractive) throw;
+            Error("Lỗi cơ sở dữ liệu: " + ex.Message);
+        }
+        catch (Exception ex)
+        {
+            if (NonInteractive) throw;
+            Error("Có lỗi xảy ra: " + ex.Message);
+        }
         return false;
     }
 

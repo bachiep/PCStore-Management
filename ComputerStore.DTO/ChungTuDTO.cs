@@ -60,7 +60,9 @@ public class ChiTietHoaDonDTO
     public int SoLuong { get; set; }
     public decimal DonGia { get; set; }
     public decimal ThanhTien => SoLuong * DonGia;
-    public int ThoiGianBH { get; set; }
+    public string? TenSPKhiBan { get; set; }
+    public int? ThoiGianBHKhiBan { get; set; }
+    public int? ThoiGianBH { get; set; }
     /// <summary>Serial được bán (số phần tử = SoLuong).</summary>
     public List<string> Serials { get; set; } = new();
 }

@@ -46,11 +46,25 @@ public class NhanVienDAL
         => Convert.ToInt32(ExecuteScalar(@"SELECT (SELECT COUNT(*) FROM HoaDon WHERE MaNV=@id) + (SELECT COUNT(*) FROM PhieuNhap WHERE MaNV=@id)
                                           + (SELECT COUNT(*) FROM PhieuBaoHanh WHERE MaNV=@id)", P("@id", id))) > 0;
 
-    public void Delete(int id)
-    {
-        ExecuteNonQuery("DELETE FROM TaiKhoan WHERE MaNV=@id", P("@id", id));
-        ExecuteNonQuery("DELETE FROM NhanVien WHERE MaNV=@id", P("@id", id));
-    }
+    public bool Delete(int id)
+        => InTransactionWithNamedLock(TaiKhoanDAL.AdminInvariantLockName, (conn, tran) =>
+        {
+            var isActiveAdmin = Convert.ToInt32(ExecuteScalar(conn, tran,
+                "SELECT COUNT(*) FROM TaiKhoan WHERE MaNV=@id AND VaiTro='Admin' AND TrangThai=1", P("@id", id))) > 0;
+            if (isActiveAdmin && Convert.ToInt32(ExecuteScalar(conn, tran,
+                    "SELECT COUNT(*) FROM TaiKhoan WHERE VaiTro='Admin' AND TrangThai=1")) <= 1)
+                return false;
+
+            var hasActivity = Convert.ToInt32(ExecuteScalar(conn, tran, @"SELECT
+                (SELECT COUNT(*) FROM HoaDon WHERE MaNV=@id) +
+                (SELECT COUNT(*) FROM PhieuNhap WHERE MaNV=@id) +
+                (SELECT COUNT(*) FROM PhieuBaoHanh WHERE MaNV=@id)", P("@id", id))) > 0;
+            if (hasActivity) return false;
+
+            ExecuteNonQuery(conn, tran, "DELETE FROM TaiKhoan WHERE MaNV=@id", P("@id", id));
+            ExecuteNonQuery(conn, tran, "DELETE FROM NhanVien WHERE MaNV=@id", P("@id", id));
+            return true;
+        });
 
     private static MySqlConnector.MySqlParameter[] Params(NhanVienDTO nv) => new[]
     {

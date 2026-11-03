@@ -32,6 +32,18 @@ public class SerialDTO
     public string? SDTKH { get; set; }
 }
 
+/// <summary>Lần bán đã lưu của một serial, kể cả khi hóa đơn đó bị hủy.</summary>
+public class LichSuBanSerialDTO
+{
+    public int MaHD { get; set; }
+    public DateTime NgayBan { get; set; }
+    public string TenKH { get; set; } = "Khách lẻ";
+    public decimal DonGia { get; set; }
+    public DateTime? HanBH { get; set; }
+    public bool DaHuy { get; set; }
+    public string TrangThaiText => DaHuy ? "Đã hủy" : "Có hiệu lực";
+}
+
 public static class TrangThaiBaoHanh
 {
     public const string DangXuLy = "Đang xử lý";
@@ -44,6 +56,7 @@ public class PhieuBaoHanhDTO
 {
     public int MaPBH { get; set; }
     public string Serial { get; set; } = "";
+    public int? MaHDLucTiepNhan { get; set; }
     public string? TenSP { get; set; }
     public int? MaKH { get; set; }
     public string? TenKH { get; set; }

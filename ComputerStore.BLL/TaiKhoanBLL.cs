@@ -15,9 +15,32 @@ public static class Session
     internal static void Start(TaiKhoanDTO user) => CurrentUser = user;
     public static void End() => CurrentUser = null;
 
+    public static void RequireLogin()
+    {
+        var user = CurrentUser ?? throw new BusinessException("Chưa đăng nhập.");
+        var current = new TaiKhoanDAL().GetByUsername(user.TenDangNhap);
+        if (current == null || !current.TrangThai || !current.NhanVienHoatDong)
+        {
+            End();
+            throw new BusinessException("Tài khoản đã bị khóa hoặc nhân viên đã nghỉ việc. Vui lòng đăng nhập lại.");
+        }
+
+        CurrentUser = current;
+    }
+
     public static void RequireAdmin()
     {
-        if (!IsAdmin) throw new BusinessException("Bạn không có quyền thực hiện chức năng này.");
+        var wasAdmin = IsAdmin;
+        RequireLogin();
+        if (IsAdmin) return;
+
+        if (wasAdmin)
+        {
+            End();
+            throw new BusinessException("Quyền quản trị đã bị thu hồi. Vui lòng đăng nhập lại.");
+        }
+
+        throw new BusinessException("Bạn không có quyền thực hiện chức năng này.");
     }
 }
 
@@ -25,8 +48,27 @@ public static class Session
 public static class Audit
 {
     private static readonly NhatKyDAL _dal = new();
-    public static void Log(string hanhDong, string chiTiet = "")
-        => _dal.Ghi(Session.CurrentUser?.TenDangNhap ?? "?", hanhDong, chiTiet);
+    public static event Action? LogWriteFailed;
+
+    /// <summary>Audit failure must not make an already committed business action look unsuccessful.</summary>
+    public static bool Log(string hanhDong, string chiTiet = "")
+    {
+        try
+        {
+            _dal.Ghi(Session.CurrentUser?.TenDangNhap ?? "?", hanhDong, chiTiet);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Không ghi được nhật ký '{hanhDong}': {ex}");
+            try { LogWriteFailed?.Invoke(); }
+            catch (Exception notificationError)
+            {
+                System.Diagnostics.Debug.WriteLine($"Không thể thông báo lỗi nhật ký: {notificationError}");
+            }
+            return false;
+        }
+    }
 }
 
 public static class PasswordHasher
@@ -55,6 +97,8 @@ public class TaiKhoanBLL
             throw new BusinessException("Tên đăng nhập hoặc mật khẩu không đúng.");
         if (!tk.TrangThai)
             throw new BusinessException("Tài khoản đã bị khóa. Vui lòng liên hệ quản lý.");
+        if (!tk.NhanVienHoatDong)
+            throw new BusinessException("Nhân viên đã nghỉ việc. Tài khoản không thể đăng nhập.");
 
         Session.Start(tk);
         Audit.Log("Đăng nhập", tk.VaiTro);
@@ -63,6 +107,7 @@ public class TaiKhoanBLL
 
     public void DoiMatKhau(string matKhauCu, string matKhauMoi, string xacNhan)
     {
+        Session.RequireLogin();
         var user = Session.CurrentUser ?? throw new BusinessException("Chưa đăng nhập.");
         var tk = _dal.GetByUsername(user.TenDangNhap)!;
         if (!PasswordHasher.Verify(matKhauCu, tk.MatKhauHash))
@@ -102,14 +147,20 @@ public class TaiKhoanBLL
     public void CapNhatQuyen(string username, string vaiTro, bool hoatDong)
     {
         Session.RequireAdmin();
+        username = (username ?? "").Trim();
         if (vaiTro != VaiTroConst.Admin && vaiTro != VaiTroConst.NhanVien) throw new BusinessException("Vai trò không hợp lệ.");
-        if (username == Session.CurrentUser!.TenDangNhap && (vaiTro != VaiTroConst.Admin || !hoatDong))
+        var target = _dal.GetByUsername(username);
+        if (target == null) throw new BusinessException("Không tìm thấy tài khoản.");
+        if (target.MaNV == Session.MaNV && (vaiTro != VaiTroConst.Admin || !hoatDong))
             throw new BusinessException("Không thể tự hạ quyền hoặc khóa tài khoản đang đăng nhập.");
-        var tk = _dal.GetByUsername(username) ?? throw new BusinessException("Không tìm thấy tài khoản.");
-        if (tk.VaiTro == VaiTroConst.Admin && tk.TrangThai && (vaiTro != VaiTroConst.Admin || !hoatDong)
-            && _dal.CountActiveAdmins() <= 1)
+        if (hoatDong && !target.NhanVienHoatDong)
+            throw new BusinessException("Không thể kích hoạt tài khoản của nhân viên đã nghỉ việc.");
+        if (!_dal.UpdateRoleStatus(username, vaiTro, hoatDong))
+        {
+            if (hoatDong && !_dal.IsEmployeeWorking(target.MaNV))
+                throw new BusinessException("Không thể kích hoạt tài khoản của nhân viên đã nghỉ việc.");
             throw new BusinessException("Hệ thống phải có ít nhất một quản trị viên đang hoạt động.");
-        _dal.UpdateRoleStatus(username, vaiTro, hoatDong);
+        }
     }
 
     public void DatLaiMatKhau(string username, string matKhauMoi)

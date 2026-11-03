@@ -8,6 +8,7 @@ public class frmDangNhap : Form
     private readonly TextBox _pass = new();
     private readonly Components.ModernButton _btnLogin;
     private readonly Label _error = new();
+    private readonly ToolTip _errorTip = new();
     private readonly CheckBox _show = new();
     private readonly TaiKhoanBLL _bll = new();
 
@@ -78,11 +79,11 @@ public class frmDangNhap : Form
         _show.Location = new Point(60, 320);
         _show.CheckedChanged += (_, _) => _pass.UseSystemPasswordChar = !_show.Checked;
 
-        _error.AutoSize = false; _error.Size = new Size(360, 20); _error.Location = new Point(60, 350);
-        _error.ForeColor = Theme.Danger; _error.Font = Theme.Base; _error.TextAlign = ContentAlignment.MiddleLeft;
+        _error.AutoSize = false; _error.Size = new Size(360, 36); _error.Location = new Point(60, 348);
+        _error.AutoEllipsis = true; _error.ForeColor = Theme.Danger; _error.Font = Theme.Small; _error.TextAlign = ContentAlignment.MiddleLeft;
 
         _btnLogin = Theme.PrimaryButton("ĐĂNG NHẬP", 360, (_, _) => DoLogin());
-        _btnLogin.Name = "btnLogin"; _btnLogin.Height = 46; _btnLogin.Location = new Point(60, 375); _btnLogin.Font = new Font("Segoe UI", 12f, FontStyle.Bold);
+        _btnLogin.Name = "btnLogin"; _btnLogin.Height = 46; _btnLogin.Location = new Point(60, 390); _btnLogin.Font = new Font("Segoe UI", 12f, FontStyle.Bold);
         AcceptButton = _btnLogin;
 
         right.Controls.AddRange(new Control[] { title, sub, lblU, pnlUser, lblP, pnlPass, _show, _error, _btnLogin });
@@ -109,7 +110,8 @@ public class frmDangNhap : Form
         }
         catch (Exception ex)
         {
-            _error.Text = "Không thể đăng nhập: " + ex.Message;
+            _error.Text = "Không kết nối được cơ sở dữ liệu. Hãy kiểm tra máy chủ rồi thử lại.";
+            _errorTip.SetToolTip(_error, ex.Message);
         }
     }
 }

@@ -19,7 +19,7 @@ public class ucBanHang : PageBase
     private readonly DanhMucBLL _dmBll = new();
 
     // --- Left Panel Controls (Search & Products) ---
-    private readonly TextBox _txtSearchSP = Theme.Input(340, "🔍 Tìm tên, mã SP hoặc quét Barcode (F2)...");
+    private readonly TextBox _txtSearchSP = Theme.Input(340, "Tìm tên/mã SP • máy quét cần nhập mã SP");
     private readonly FlowLayoutPanel _flowCategories = new();
     private readonly Panel _productContainer = new() { Dock = DockStyle.Fill };
     private readonly DataGridView _gridProducts = Theme.Grid();
@@ -108,22 +108,24 @@ public class ucBanHang : PageBase
         _txtSearchSP.Margin = new Padding(0, 0, 8, 0);
 
         _btnToggleView = Theme.GhostButton("Dạng lưới ảnh", 116, (_, _) => ToggleView());
+        _btnToggleView.Name = "btnToggleView";
         _btnToggleView.Margin = new Padding(0, 0, 8, 0);
         var tipToggle = new ToolTip();
         tipToggle.SetToolTip(_btnToggleView, "Chuyển đổi giao diện: Lưới hình ảnh / Bảng danh sách");
 
         var infoHotkeys = Theme.InfoBadge(
-            "• F2: Nhảy con trỏ vào ô Tìm kiếm linh kiện / Quét mã vạch\n" +
+            "• F2: Đưa con trỏ vào ô tìm kiếm; máy quét cần nhập mã sản phẩm\n" +
             "• Enter: Thêm linh kiện đang chọn vào giỏ hàng\n" +
             "• F4: Nhảy con trỏ vào ô nhập SĐT khách hàng\n" +
-            "• F9: Bấm Thanh toán & In hóa đơn PDF\n" +
+            "• F9: Thanh toán; sau khi lưu có thể chọn xuất hóa đơn PDF\n" +
             "• Esc: Xóa sạch giỏ hàng\n" +
             "• Bấm nút [✕] ở cuối dòng để xóa món khỏi giỏ\n" +
-            "• Chỉnh sửa cột SL trong giỏ hàng: Gõ trực tiếp số lượng mới",
+            "• Chỉnh sửa cột SL trong giỏ hàng: Gõ trực tiếp số lượng mới\n" +
+            "• Ảnh trên thẻ là ảnh theo SKU khi có, còn lại là ảnh đại diện danh mục",
             "Phím tắt & Hướng dẫn Bán hàng (POS)");
 
         var topSearchRow = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 36, WrapContents = false, AutoSize = false };
-        topSearchRow.Controls.Add(_txtSearchSP);
+        topSearchRow.Controls.Add(Theme.SearchField(_txtSearchSP, "Tìm tên/mã SP • máy quét cần nhập mã SP"));
         topSearchRow.Controls.Add(_btnToggleView);
         topSearchRow.Controls.Add(infoHotkeys);
 
@@ -212,13 +214,14 @@ public class ucBanHang : PageBase
 
         // Product Grid (Table View - Default)
         _gridProducts.AutoGenerateColumns = false;
-        _gridProducts.Columns.AddRange(
-            Theme.Col("MaSP", "Mã", weight: 0.5f),
-            Theme.Col("TenSP", "Tên linh kiện đầy đủ", weight: 3f),
-            Theme.Col("TenDM", "Danh mục", weight: 1f),
-            Theme.Col("SoLuongTon", "Tồn kho", weight: 0.7f, right: true),
-            Theme.Col("GiaBan", "Đơn giá", weight: 1.1f, format: "N0", right: true)
-        );
+        var productIdColumn = Theme.Col("MaSP", "Mã", weight: 0.35f);
+        var productNameColumn = Theme.Col("TenSP", "Tên linh kiện", weight: 5.2f);
+        var stockColumn = Theme.Col("SoLuongTon", "Tồn", weight: 0.45f, right: true);
+        var priceColumn = Theme.Col("GiaBan", "Đơn giá", weight: 0.8f, format: "N0", right: true);
+        productIdColumn.MinimumWidth = 42;
+        stockColumn.MinimumWidth = 54;
+        priceColumn.MinimumWidth = 94;
+        _gridProducts.Columns.AddRange(productIdColumn, productNameColumn, stockColumn, priceColumn);
         _gridProducts.CellFormatting += (_, e) =>
         {
             if (_gridProducts.Rows[e.RowIndex].DataBoundItem is SanPhamDTO sp)
@@ -395,8 +398,8 @@ public class ucBanHang : PageBase
         btnClearCart.FlatAppearance.BorderSize = 0;
         btnClearCart.Click += (_, _) =>
         {
-            if (_items.Count > 0 && Msg.Confirm("Bạn có chắc muốn xóa sạch giỏ hàng này?"))
-                _items.Clear();
+            if (HasCurrentDraft() && Msg.Confirm("Xóa giỏ hàng và toàn bộ thông tin của đơn hiện tại? Các đơn đang treo sẽ được giữ nguyên."))
+                ClearCurrentDraft();
         };
 
         var tipClear = new ToolTip();
@@ -714,6 +717,7 @@ public class ucBanHang : PageBase
             if (e.KeyCode == Keys.Enter)
             {
                 e.SuppressKeyPress = true;
+                FlushDebounce(_txtSearchSP, ReloadProducts);
                 if (_currentFilteredProducts.Count == 1)
                 {
                     OnProductClicked(this, _currentFilteredProducts[0]);
@@ -733,6 +737,26 @@ public class ucBanHang : PageBase
         };
 
         _items.ListChanged += (_, _) => UpdateTien();
+        UpdateTien();
+    }
+
+    public override bool HasUnsavedChanges => HasCurrentDraft() || _heldBills.Count > 0;
+
+    private bool HasCurrentDraft()
+        => _items.Count > 0 || _khachHang != null || !string.IsNullOrWhiteSpace(_txtSdtKH.Text)
+           || _txtGiamGia.Text.Trim() != "0" || _cboLoaiGiamGia.SelectedIndex != 0
+           || !string.IsNullOrWhiteSpace(_txtGhiChu.Text)
+           || (_cboHTTT.SelectedItem is string method && method != HinhThucThanhToan.TienMat);
+
+    private void ClearCurrentDraft()
+    {
+        _items.Clear();
+        _txtSdtKH.Clear();
+        ResetKhachBadge();
+        _txtGiamGia.Text = "0";
+        _cboLoaiGiamGia.SelectedIndex = 0;
+        _cboHTTT.SelectedItem = HinhThucThanhToan.TienMat;
+        _txtGhiChu.Clear();
         UpdateTien();
     }
 
@@ -810,8 +834,8 @@ public class ucBanHang : PageBase
     {
         var keyword = _txtSearchSP.Text;
         int maDm = _flowCategories.Tag is int id ? id : 0;
-        
-        Msg.Run(() =>
+
+        var loaded = Msg.Run(() =>
         {
             var sps = _spBll.Search(keyword, maDm, 0, true);
             _currentFilteredProducts = sps;
@@ -831,6 +855,18 @@ public class ucBanHang : PageBase
                 _flowProducts.ResumeLayout();
             }
         });
+
+        if (!loaded) ClearProductResults();
+    }
+
+    private void ClearProductResults()
+    {
+        _currentFilteredProducts.Clear();
+        _gridProducts.DataSource = null;
+        _flowProducts.SuspendLayout();
+        while (_flowProducts.Controls.Count > 0) _flowProducts.Controls[0].Dispose();
+        _flowProducts.Controls.Clear();
+        _flowProducts.ResumeLayout();
     }
 
     private void OnProductClicked(object? sender, SanPhamDTO sp)
@@ -867,8 +903,8 @@ public class ucBanHang : PageBase
 
             _items.Add(new ChiTietHoaDonDTO { MaSP = sp1.MaSP, TenSP = sp1.TenSP, DonGia = sp1.GiaBan, SoLuong = 1 });
             _items.Add(new ChiTietHoaDonDTO { MaSP = sp2.MaSP, TenSP = sp2.TenSP, DonGia = sp2.GiaBan, SoLuong = 1 });
-            _khachHang = new KhachHangDTO { MaKH = 1, HoTen = "Nguyễn Văn An", SDT = "0987654321" };
-            _txtSdtKH.Text = "0987654321";
+            _khachHang = new KhachHangDTO { MaKH = 1, HoTen = "Khách hàng mẫu", SDT = "0000000201" };
+            _txtSdtKH.Text = "0000000201";
             ShowKhach();
             UpdateTien();
         }
@@ -942,32 +978,13 @@ public class ucBanHang : PageBase
     {
         var tong = _items.Sum(x => x.ThanhTien);
         _lblTongTien.Text = $"{tong:N0} ₫";
+        var validDiscount = TryGetDiscount(tong, out var giam);
+        _lblGiamGiaPreview.ForeColor = validDiscount ? Theme.Muted : Theme.Danger;
+        _lblGiamGiaPreview.Text = validDiscount
+            ? (_cboLoaiGiamGia.SelectedIndex == 1 ? $"- {giam:N0} ₫" : "")
+            : (_cboLoaiGiamGia.SelectedIndex == 1 ? "Nhập tỷ lệ từ 0 đến 100%" : "Giảm giá phải nằm trong tổng tiền");
 
-        decimal giam = 0;
-        var isPercent = _cboLoaiGiamGia.SelectedIndex == 1;
-        if (isPercent)
-        {
-            if (decimal.TryParse(_txtGiamGia.Text.Trim(), out var pct))
-            {
-                pct = Math.Clamp(pct, 0, 100);
-                giam = Math.Round(tong * pct / 100m);
-                _lblGiamGiaPreview.Text = $"- {giam:N0} ₫";
-            }
-            else
-            {
-                _lblGiamGiaPreview.Text = "- 0 ₫";
-            }
-        }
-        else
-        {
-            if (decimal.TryParse(_txtGiamGia.Text.Replace(".", "").Replace(",", ""), out var v))
-            {
-                giam = Math.Min(tong, Math.Max(0, v));
-                _lblGiamGiaPreview.Text = "";
-            }
-        }
-
-        var phaiThu = Math.Max(0, tong - giam);
+        var phaiThu = validDiscount ? tong - giam : tong;
         _lblThanhToan.Text = $"{phaiThu:N0} ₫";
         if (phaiThu > 0)
         {
@@ -986,6 +1003,27 @@ public class ucBanHang : PageBase
         _pnlTotalHero.Invalidate();
 
         _lblCartHeader.Text = $"🛒 GIỎ HÀNG ({_items.Sum(x => x.SoLuong)} món)";
+    }
+
+    private bool TryGetDiscount(decimal tong, out decimal giam)
+    {
+        giam = 0;
+        if (_cboLoaiGiamGia.SelectedIndex == 1)
+        {
+            if (!decimal.TryParse(_txtGiamGia.Text.Trim(), System.Globalization.NumberStyles.AllowDecimalPoint,
+                    System.Globalization.CultureInfo.InvariantCulture, out var pct) || pct < 0 || pct > 100)
+                return false;
+            giam = Math.Round(tong * pct / 100m);
+            return true;
+        }
+
+        var raw = _txtGiamGia.Text.Trim();
+        if (raw.Length == 0 || raw.Any(c => !char.IsDigit(c) && c != '.')) return false;
+        if (!decimal.TryParse(raw.Replace(".", ""), System.Globalization.NumberStyles.None,
+                System.Globalization.CultureInfo.InvariantCulture, out var value) || value < 0 || value > tong)
+            return false;
+        giam = value;
+        return true;
     }
 
     private void TreoDon()
@@ -1021,13 +1059,7 @@ public class ucBanHang : PageBase
             );
             _heldBills.Add(bill);
 
-            _items.Clear();
-            _txtSdtKH.Clear();
-            ResetKhachBadge();
-            _txtGiamGia.Text = "0";
-            _cboLoaiGiamGia.SelectedIndex = 0;
-            _txtGhiChu.Clear();
-            UpdateTien();
+            ClearCurrentDraft();
             UpdateHoldButtonText();
 
             Msg.Info($"Đã treo đơn hàng #{_heldBills.Count} ({bill.CreatedAt:HH:mm}). Bạn có thể tiếp tục phục vụ khách khác!");
@@ -1074,17 +1106,16 @@ public class ucBanHang : PageBase
     {
         if (index < 0 || index >= _heldBills.Count) return;
 
-        if (_items.Count > 0)
+        if (HasCurrentDraft())
         {
-            if (!Msg.Confirm("Giỏ hàng hiện tại đang có sản phẩm. Bạn có muốn phục hồi đơn treo này (đơn hiện tại chưa lưu sẽ bị xóa)?"))
+            if (!Msg.Confirm("Đơn hiện tại đang có thông tin chưa lưu. Bạn có muốn phục hồi đơn treo này và xóa đơn hiện tại?"))
                 return;
         }
 
         var bill = _heldBills[index];
         _heldBills.RemoveAt(index);
         UpdateHoldButtonText();
-
-        _items.Clear();
+        ClearCurrentDraft();
         foreach (var it in bill.Items) _items.Add(it);
 
         _khachHang = bill.Khach;
@@ -1112,18 +1143,15 @@ public class ucBanHang : PageBase
     {
         if (_items.Count == 0) { Msg.Warn("Giỏ hàng đang trống. Hãy chọn sản phẩm trước khi thanh toán."); return; }
         var tong = _items.Sum(x => x.ThanhTien);
-        decimal giam = 0;
-        if (_cboLoaiGiamGia.SelectedIndex == 1)
+        if (!TryGetDiscount(tong, out var giam))
         {
-            if (decimal.TryParse(_txtGiamGia.Text.Trim(), out var pct))
-                giam = Math.Round(tong * Math.Clamp(pct, 0, 100) / 100m);
+            Msg.Warn(_cboLoaiGiamGia.SelectedIndex == 1
+                ? "Tỷ lệ giảm giá phải là số từ 0 đến 100%."
+                : "Giảm giá phải là số không âm và không vượt quá tổng tiền.");
+            _txtGiamGia.Focus();
+            _txtGiamGia.SelectAll();
+            return;
         }
-        else
-        {
-            if (decimal.TryParse(_txtGiamGia.Text.Replace(".", "").Replace(",", ""), out var v))
-                giam = Math.Min(tong, Math.Max(0, v));
-        }
-        var phaiThu = Math.Max(0, tong - giam);
 
         // Chọn serial cho các sản phẩm trong giỏ
         var hd = new HoaDonDTO
@@ -1141,6 +1169,13 @@ public class ucBanHang : PageBase
 
         foreach (var ct in _items)
         {
+            var currentProduct = _spBll.GetById(ct.MaSP);
+            if (currentProduct == null || currentProduct.GiaBan != ct.DonGia)
+            {
+                Msg.Warn($"Giá của sản phẩm \"{ct.TenSP}\" đã thay đổi. Hãy cập nhật giỏ hàng trước khi thanh toán.");
+                return;
+            }
+            ct.ThoiGianBH = currentProduct.ThoiGianBH;
             var sp = new SanPhamDTO { MaSP = ct.MaSP, TenSP = ct.TenSP ?? "" };
             using var f = new frmChonSerial(sp, ct.SoLuong);
             if (f.ShowDialog() != DialogResult.OK) return;
@@ -1155,24 +1190,28 @@ public class ucBanHang : PageBase
             hd.NgayLap = DateTime.Now;
         }))
         {
+            var paidItems = _items.Select(item => new ChiTietHoaDonDTO
+            {
+                MaSP = item.MaSP, TenSP = item.TenSP, SoLuong = item.SoLuong,
+                DonGia = item.DonGia, ThoiGianBH = item.ThoiGianBH, Serials = item.Serials.ToList()
+            }).ToList();
+            ClearCurrentDraft();
+            ReloadProducts();
+
             Msg.Info($"Thanh toán thành công hóa đơn #{idHD}!");
             if (Ask("In hóa đơn ra file PDF?"))
             {
                 using var dlg = new SaveFileDialog { Filter = "PDF Files|*.pdf", FileName = $"HoaDon_{idHD}.pdf" };
                 if (dlg.ShowDialog() == DialogResult.OK)
                 {
-                    ComputerStore.GUI.Services.PdfExporter.ExportHoaDon(hd, _items.ToList(), dlg.FileName);
-                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(dlg.FileName) { UseShellExecute = true });
+                    try
+                    {
+                        ComputerStore.GUI.Services.PdfExporter.ExportHoaDon(hd, paidItems, dlg.FileName);
+                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(dlg.FileName) { UseShellExecute = true });
+                    }
+                    catch (Exception ex) { Msg.Error($"Hóa đơn #{idHD} đã lưu thành công nhưng không thể xuất/mở PDF: {ex.Message}. Bạn có thể in lại từ màn hình Hóa đơn."); }
                 }
             }
-            _items.Clear();
-            _txtSdtKH.Clear();
-            _txtGiamGia.Text = "0";
-            _cboLoaiGiamGia.SelectedIndex = 0;
-            _txtGhiChu.Clear();
-            ResetKhachBadge();
-            UpdateTien();
-            ReloadProducts(); // Reload kho
         }
     }
 
@@ -1205,9 +1244,9 @@ public class ucBanHang : PageBase
         }
         if (keyData == Keys.Escape)
         {
-            if (_items.Count > 0 && Msg.Confirm("Bạn có muốn xóa sạch giỏ hàng?"))
+            if (HasCurrentDraft() && Msg.Confirm("Bạn có muốn xóa toàn bộ thông tin đơn hàng hiện tại?"))
             {
-                _items.Clear();
+                ClearCurrentDraft();
                 return true;
             }
         }

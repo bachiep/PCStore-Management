@@ -8,6 +8,7 @@ public class frmMain : Form
     private readonly Panel _content = new() { Dock = DockStyle.Fill, BackColor = Theme.Page };
     private readonly Label _headerTitle = new();
     private readonly Dictionary<string, Button> _navButtons = new();
+    private readonly Dictionary<string, PageBase> _pages = new();
     private string? _current;
 
     /// <summary>true nếu người dùng bấm Đăng xuất (Program sẽ hiện lại form đăng nhập).</summary>
@@ -34,9 +35,10 @@ public class frmMain : Form
     private Control BuildSidebar()
     {
         var side = new Panel { Dock = DockStyle.Left, Width = 236, BackColor = Theme.Sidebar };
-        var scroll = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoScroll = false, BackColor = Theme.Sidebar, Padding = new Padding(0, 8, 0, 0) };
+        var scroll = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoScroll = true, BackColor = Theme.Sidebar, Padding = new Padding(0, 8, 0, 0) };
+        scroll.HorizontalScroll.Enabled = false;
 
-        var brand = new FlowLayoutPanel { Height = 62, Width = 236, Padding = new Padding(22, 16, 0, 0), WrapContents = false };
+        var brand = new FlowLayoutPanel { Height = 62, Width = 236, Margin = new Padding(0), Padding = new Padding(22, 16, 0, 0), WrapContents = false };
         var l1 = new Label { Text = "PC", Font = new Font("Segoe UI Black", 18f), ForeColor = Theme.Danger, AutoSize = true, Margin = new Padding(0), UseMnemonic = false };
         var l2 = new Label { Text = "STORE", Font = new Font("Segoe UI Semibold", 18f), ForeColor = Color.White, AutoSize = true, Margin = new Padding(4, 0, 0, 0), UseMnemonic = false };
         brand.Controls.Add(l1); brand.Controls.Add(l2);
@@ -51,7 +53,7 @@ public class frmMain : Form
                 scroll.Controls.Add(new Label
                 {
                     Text = item.Group.ToUpperInvariant(), Font = new Font("Segoe UI", 8f, FontStyle.Bold), ForeColor = ColorTranslator.FromHtml("#6B7280"),
-                    Width = 236, Height = 32, TextAlign = ContentAlignment.BottomLeft, Padding = new Padding(22, 0, 0, 4)
+                    Width = 236, Height = 32, Margin = new Padding(0), TextAlign = ContentAlignment.BottomLeft, Padding = new Padding(22, 0, 0, 4)
                 });
             }
             var btn = new Button
@@ -67,6 +69,24 @@ public class frmMain : Form
             _navButtons[item.Key] = btn;
             scroll.Controls.Add(btn);
         }
+        var syncingWidths = false;
+        void FitSidebarItems()
+        {
+            if (syncingWidths || scroll.IsDisposed) return;
+            syncingWidths = true;
+            try
+            {
+                var width = Math.Max(0, scroll.ClientSize.Width
+                    - (scroll.VerticalScroll.Visible ? SystemInformation.VerticalScrollBarWidth : 0)
+                    - scroll.Padding.Horizontal);
+                foreach (Control item in scroll.Controls)
+                    if (item.Width != width) item.Width = width;
+            }
+            finally { syncingWidths = false; }
+        }
+        scroll.ClientSizeChanged += (_, _) => FitSidebarItems();
+        scroll.Layout += (_, _) => FitSidebarItems();
+        FitSidebarItems();
         side.Controls.Add(scroll);
         return side;
     }
@@ -88,6 +108,7 @@ public class frmMain : Form
         var btnOut = Theme.GhostButton("Đăng xuất", 120, (_, _) =>
         {
             if (!Msg.Confirm("Bạn có chắc muốn đăng xuất?")) return;
+            if (HasUnsavedChanges() && !Msg.Confirm("Bạn còn giỏ hàng hoặc phiếu đang nhập. Đăng xuất sẽ xóa các nội dung này. Bạn có muốn tiếp tục?")) return;
             LogoutRequested = true;
             Session.End();
             Close();
@@ -103,15 +124,48 @@ public class frmMain : Form
             btnPwd.Location = new Point(btnOut.Left - btnPwd.Width - 8, 12);
             info.Location = new Point(btnPwd.Left - info.Width - 18, 18);
         };
+        FormClosing += (_, e) =>
+        {
+            if (!LogoutRequested && HasUnsavedChanges() && !Msg.Confirm("Bạn còn giỏ hàng hoặc phiếu đang nhập. Đóng ứng dụng sẽ xóa các nội dung này. Bạn có muốn tiếp tục?"))
+                e.Cancel = true;
+        };
+        FormClosed += (_, _) =>
+        {
+            foreach (var page in _pages.Values) page.Dispose();
+            _pages.Clear();
+        };
         return header;
     }
 
-    /// <summary>Hiển thị trang theo khóa menu. Mỗi lần mở tạo trang mới để dữ liệu luôn mới nhất.</summary>
+    /// <summary>Hiển thị trang theo khóa menu, giữ nháp trong phiên đăng nhập.</summary>
     public void Navigate(string key)
     {
         var item = PageRegistry.Items.FirstOrDefault(i => i.Key == key);
         if (item == null || (item.AdminOnly && !Session.IsAdmin)) return;
+        if (_current == key) return;
 
+        if (_current != null && _pages.TryGetValue(_current, out var currentPage)
+            && currentPage.ConfirmDiscardOnNavigation && currentPage.HasUnsavedChanges)
+        {
+            if (!Msg.Confirm("Bạn có thay đổi chưa lưu ở trang hiện tại. Bỏ thay đổi và chuyển trang?")) return;
+            currentPage.AcknowledgeDiscardedChanges();
+            Msg.Run(currentPage.LoadData);
+        }
+
+        if (!_pages.TryGetValue(key, out var page))
+        {
+            var created = Msg.Run(() => item.Create(this));
+            if (created == null) return;
+            page = created;
+            _pages[key] = page;
+        }
+
+        _content.SuspendLayout();
+        _content.Controls.Clear();
+        _current = key;
+        _headerTitle.Text = item.Text;
+        _content.Controls.Add(page);
+        _content.ResumeLayout();
         foreach (var (k, b) in _navButtons)
         {
             var active = k == key;
@@ -119,20 +173,10 @@ public class frmMain : Form
             b.ForeColor = active ? Color.White : ColorTranslator.FromHtml("#D1D5DB");
             b.Font = active ? Theme.Bold : Theme.Base;
         }
-
-        _content.SuspendLayout();
-        var old = _content.Controls.Cast<Control>().ToList();
-        _content.Controls.Clear();
-        foreach (var c in old) c.Dispose();
-
-        PageBase? page = null;
-        if (!Msg.Run(() => { page = item.Create(this); })) { _content.ResumeLayout(); return; }
-        _current = key;
-        _headerTitle.Text = item.Text;
-        _content.Controls.Add(page!);
-        _content.ResumeLayout();
-        Msg.Run(page!.LoadData);
+        Msg.Run(page.LoadData);
     }
+
+    private bool HasUnsavedChanges() => _pages.Values.Any(page => page.HasUnsavedChanges);
 
     public string? CurrentKey => _current;
     public Control ContentHost => _content;

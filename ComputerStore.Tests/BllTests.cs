@@ -17,7 +17,7 @@ public class ValidatorTests
 
     [Theory]
     [InlineData("a@b.vn", true)]
-    [InlineData("khoa@gmail.com", true)]
+    [InlineData("khachhang01@example.invalid", true)]
     [InlineData("khoa@gmail", false)]
     [InlineData("khoa gmail.com", false)]
     [InlineData("", false)]
@@ -96,6 +96,17 @@ public class PasswordTests
     {
         Session.End();
         Assert.Throws<BusinessException>(Session.RequireAdmin);
+    }
+
+    [Fact]
+    public void BusinessQueries_RequireAnAuthenticatedSession()
+    {
+        Session.End();
+        Assert.Throws<BusinessException>(() => new SanPhamBLL().Search());
+        Assert.Throws<BusinessException>(() => new DanhMucBLL().GetAll());
+        Assert.Throws<BusinessException>(() => new HoaDonBLL().Search(DateTime.Today, DateTime.Today));
+        Assert.Throws<BusinessException>(() => new BaoHanhBLL().Search());
+        Assert.Throws<BusinessException>(() => new PhieuNhapBLL().Search(DateTime.Today, DateTime.Today));
     }
 }
 
@@ -188,6 +199,13 @@ public class HoaDonTests
         Assert.Throws<BusinessException>(() => HoaDonBLL.Validate(new HoaDonDTO(), new[] { Line(1, 0, 1000) }));
         Assert.Throws<BusinessException>(() => HoaDonBLL.Validate(new HoaDonDTO(), new[] { Line(1, 1, -5, "S-001") }));
     }
+
+    [Fact]
+    public void Validate_RejectsNullLineAndMalformedSerial()
+    {
+        Assert.Throws<BusinessException>(() => HoaDonBLL.Validate(new HoaDonDTO(), new List<ChiTietHoaDonDTO> { null! }));
+        Assert.Throws<BusinessException>(() => HoaDonBLL.Validate(new HoaDonDTO(), new[] { Line(1, 1, 1000, "bad serial") }));
+    }
 }
 
 public class PhieuNhapTests
@@ -231,6 +249,14 @@ public class BaoHanhTests
     [Fact]
     public void NotSold_IsRejected()
         => Assert.False(BaoHanhBLL.KiemTra(Sold(null, TrangThaiSerial.TrongKho, null), Today).HopLe);
+
+    [Fact]
+    public void ZeroMonthWarranty_IsRejectedEvenOnSaleDate()
+    {
+        var result = BaoHanhBLL.KiemTra(Sold(null), Today);
+        Assert.False(result.HopLe);
+        Assert.Contains("không có thông tin hạn bảo hành", result.ThongBao);
+    }
 
     [Fact]
     public void AlreadyInWarranty_IsRejected()

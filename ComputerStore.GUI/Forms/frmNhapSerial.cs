@@ -97,8 +97,8 @@ public class frmNhapSerial : Form
 
         var btnTuDong = new ModernButton
         {
-            Text = "⚡ Tự sinh serial",
-            Width = 130,
+            Text = "Tạo serial còn thiếu",
+            Width = 165,
             Height = 28,
             BorderRadius = 6,
             NormalColor = ColorTranslator.FromHtml("#2563EB"),
@@ -176,14 +176,30 @@ public class frmNhapSerial : Form
             BorderRadius = 8,
             Padding = new Padding(10)
         };
-        card.Controls.Add(_txtSerials);
+        var serialInputHost = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 2, Margin = new Padding(0), BackColor = Color.White };
+        serialInputHost.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        serialInputHost.RowStyles.Add(new RowStyle(SizeType.Absolute, 26));
+        serialInputHost.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        var serialHint = new Label
+        {
+            Text = "Dán hoặc nhập serial, mỗi dòng một thiết bị.",
+            Dock = DockStyle.Fill,
+            Font = new Font("Segoe UI", 9f),
+            ForeColor = ColorTranslator.FromHtml("#64748B"),
+            TextAlign = ContentAlignment.MiddleLeft,
+            Padding = new Padding(6, 0, 0, 0),
+            BackColor = ColorTranslator.FromHtml("#F8FAFC")
+        };
+        serialInputHost.Controls.Add(serialHint, 0, 0);
+        serialInputHost.Controls.Add(_txtSerials, 0, 1);
+        card.Controls.Add(serialInputHost);
         pnlFill.Controls.Add(card);
 
         // --- 3. BOTTOM (NÚT LƯU, HỦY VÀ GỢI Ý) ---
         var pnlBot = new Panel { Height = 56, Dock = DockStyle.Bottom, Padding = new Padding(16, 10, 16, 12), BackColor = Color.White };
         var lblTip = new Label
         {
-            Text = "💡 Mẹo: Có thể dán (Paste) trực tiếp từ Excel.",
+            Text = "Dán từ Excel: một serial mỗi dòng.",
             Font = new Font("Segoe UI", 8.5f, FontStyle.Italic),
             ForeColor = ColorTranslator.FromHtml("#64748B"),
             AutoSize = true,
@@ -251,13 +267,13 @@ public class frmNhapSerial : Form
 
         if (hasDup)
         {
-            _lblCounter.Text = $" ⚠️ Trùng lặp! ({count}/{_soLuong}) ";
+            _lblCounter.Text = $" Trùng lặp ({count}/{_soLuong}) ";
             _lblCounter.ForeColor = ColorTranslator.FromHtml("#DC2626");
             _lblCounter.BackColor = ColorTranslator.FromHtml("#FEE2E2");
         }
         else if (count == _soLuong)
         {
-            _lblCounter.Text = $" ✓ Đã đủ {count}/{_soLuong} serial ";
+            _lblCounter.Text = $" Đã đủ {count}/{_soLuong} serial ";
             _lblCounter.ForeColor = ColorTranslator.FromHtml("#16A34A");
             _lblCounter.BackColor = ColorTranslator.FromHtml("#DCFCE7");
         }
@@ -269,7 +285,7 @@ public class frmNhapSerial : Form
         }
         else
         {
-            _lblCounter.Text = $" ⚠️ Thừa: {count}/{_soLuong} ";
+            _lblCounter.Text = $" Thừa: {count}/{_soLuong} ";
             _lblCounter.ForeColor = ColorTranslator.FromHtml("#DC2626");
             _lblCounter.BackColor = ColorTranslator.FromHtml("#FEE2E2");
         }

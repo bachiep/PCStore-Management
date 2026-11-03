@@ -11,14 +11,15 @@ public class HoaDonBLL
 
     public List<HoaDonDTO> Search(DateTime tuNgay, DateTime denNgay, string keyword = "")
     {
+        Session.RequireLogin();
         if (tuNgay.Date > denNgay.Date) throw new BusinessException("Từ ngày không được lớn hơn đến ngày.");
-        return _dal.Search(tuNgay, denNgay, keyword.Trim());
+        return _dal.Search(tuNgay, denNgay, (keyword ?? "").Trim());
     }
 
-    public List<HoaDonDTO> GetByCustomer(int maKH) => _dal.GetByCustomer(maKH);
-    public HoaDonDTO? GetById(int maHD) => _dal.GetById(maHD);
-    public List<ChiTietHoaDonDTO> GetDetails(int maHD) => _dal.GetDetails(maHD);
-    public List<string> GetSerialsInStock(int maSP) => _serialDal.GetInStock(maSP);
+    public List<HoaDonDTO> GetByCustomer(int maKH) { Session.RequireLogin(); return _dal.GetByCustomer(maKH); }
+    public HoaDonDTO? GetById(int maHD) { Session.RequireLogin(); return _dal.GetById(maHD); }
+    public List<ChiTietHoaDonDTO> GetDetails(int maHD) { Session.RequireLogin(); return _dal.GetDetails(maHD); }
+    public List<string> GetSerialsInStock(int maSP) { Session.RequireLogin(); return _serialDal.GetInStock(maSP); }
 
     /// <summary>Tổng tiền hàng = Σ (số lượng × đơn giá).</summary>
     public static decimal TinhTongTien(IEnumerable<ChiTietHoaDonDTO> items) => items.Sum(i => i.SoLuong * i.DonGia);
@@ -28,7 +29,9 @@ public class HoaDonBLL
 
     public static void Validate(HoaDonDTO hd, IList<ChiTietHoaDonDTO> items)
     {
+        if (hd == null) throw new BusinessException("Thông tin hóa đơn không hợp lệ.");
         if (items == null || items.Count == 0) throw new BusinessException("Giỏ hàng đang trống.");
+        if (items.Any(i => i == null)) throw new BusinessException("Có dòng hàng không hợp lệ trong giỏ.");
 
         var tong = TinhTongTien(items);
         if (hd.GiamGia < 0) throw new BusinessException("Giảm giá không được âm.");
@@ -41,19 +44,24 @@ public class HoaDonBLL
         var allSerials = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var it in items)
         {
+            if (it.MaSP <= 0) throw new BusinessException("Sản phẩm trong giỏ không hợp lệ.");
             if (it.SoLuong <= 0) throw new BusinessException($"Số lượng của \"{it.TenSP}\" phải lớn hơn 0.");
             if (it.DonGia < 0) throw new BusinessException($"Đơn giá của \"{it.TenSP}\" không được âm.");
-            if (it.Serials.Count != it.SoLuong)
-                throw new BusinessException($"\"{it.TenSP}\": cần chọn đúng {it.SoLuong} serial (đã chọn {it.Serials.Count}).");
+            if (it.Serials == null || it.Serials.Count != it.SoLuong)
+                throw new BusinessException($"\"{it.TenSP}\": cần chọn đúng {it.SoLuong} serial (đã chọn {it.Serials?.Count ?? 0}).");
             foreach (var s in it.Serials)
+            {
+                if (!Validator.IsSerial(s)) throw new BusinessException($"Serial \"{s}\" không hợp lệ.");
                 if (!allSerials.Add(s.Trim())) throw new BusinessException($"Serial {s} bị chọn trùng.");
+            }
         }
     }
 
     public int LapHoaDon(HoaDonDTO hd, IList<ChiTietHoaDonDTO> items)
     {
-        if (!Session.IsLoggedIn) throw new BusinessException("Chưa đăng nhập.");
+        Session.RequireLogin();
         Validate(hd, items);
+        foreach (var it in items) it.Serials = it.Serials.Select(s => s.Trim()).ToList();
         var spDal = new SanPhamDAL();
         foreach (var it in items)
         {
@@ -89,17 +97,19 @@ public class PhieuNhapBLL
 
     public List<PhieuNhapDTO> Search(DateTime tuNgay, DateTime denNgay)
     {
+        Session.RequireAdmin();
         if (tuNgay.Date > denNgay.Date) throw new BusinessException("Từ ngày không được lớn hơn đến ngày.");
         return _dal.Search(tuNgay, denNgay);
     }
 
-    public List<ChiTietPhieuNhapDTO> GetDetails(int maPN) => _dal.GetDetails(maPN);
+    public List<ChiTietPhieuNhapDTO> GetDetails(int maPN) { Session.RequireAdmin(); return _dal.GetDetails(maPN); }
 
     public static decimal TinhTongTien(IEnumerable<ChiTietPhieuNhapDTO> items) => items.Sum(i => i.SoLuong * i.DonGia);
 
     /// <summary>Tự sinh serial dạng PREFIX-yyMMdd-0001 (không trùng với serial đang có).</summary>
     public List<string> TaoSerialTuDong(int maSP, string prefix, int soLuong)
     {
+        Session.RequireAdmin();
         prefix = (prefix ?? "").Trim().ToUpperInvariant();
         if (!Validator.IsSerial(prefix + "-000000-0000")) throw new BusinessException("Tiền tố serial chỉ gồm chữ không dấu, số, dấu - _ .");
         if (soLuong <= 0) throw new BusinessException("Số lượng phải lớn hơn 0.");
@@ -115,8 +125,10 @@ public class PhieuNhapBLL
 
     public static void Validate(PhieuNhapDTO pn, IList<ChiTietPhieuNhapDTO> items)
     {
+        if (pn == null) throw new BusinessException("Thông tin phiếu nhập không hợp lệ.");
         if (pn.MaNCC <= 0) throw new BusinessException("Vui lòng chọn nhà cung cấp.");
         if (items == null || items.Count == 0) throw new BusinessException("Phiếu nhập chưa có sản phẩm.");
+        if (items.Any(i => i == null)) throw new BusinessException("Có dòng hàng không hợp lệ trong phiếu nhập.");
         if (items.GroupBy(i => i.MaSP).Any(g => g.Count() > 1))
             throw new BusinessException("Mỗi sản phẩm chỉ được xuất hiện một dòng trong phiếu nhập.");
 
@@ -125,8 +137,8 @@ public class PhieuNhapBLL
         {
             if (it.SoLuong <= 0) throw new BusinessException($"Số lượng của \"{it.TenSP}\" phải lớn hơn 0.");
             if (it.DonGia < 0) throw new BusinessException($"Đơn giá nhập của \"{it.TenSP}\" không được âm.");
-            if (it.Serials.Count != it.SoLuong)
-                throw new BusinessException($"\"{it.TenSP}\": cần nhập đúng {it.SoLuong} serial (hiện có {it.Serials.Count}).");
+            if (it.Serials == null || it.Serials.Count != it.SoLuong)
+                throw new BusinessException($"\"{it.TenSP}\": cần nhập đúng {it.SoLuong} serial (hiện có {it.Serials?.Count ?? 0}).");
             foreach (var s in it.Serials)
             {
                 if (!Validator.IsSerial(s))
@@ -163,12 +175,19 @@ public class BaoHanhBLL
 
     public SerialDTO? TraCuu(string serial)
     {
+        Session.RequireLogin();
         Validator.Require(serial, "Serial");
         return _serialDal.Lookup(serial.Trim());
     }
 
-    public List<PhieuBaoHanhDTO> LichSu(string serial) => _dal.GetBySerial(serial);
-    public List<PhieuBaoHanhDTO> Search(string keyword = "", string trangThai = "") => _dal.Search(keyword.Trim(), trangThai);
+    public List<PhieuBaoHanhDTO> LichSu(string serial) { Session.RequireLogin(); return _dal.GetBySerial((serial ?? "").Trim()); }
+    public List<LichSuBanSerialDTO> LichSuBan(string serial)
+    {
+        Session.RequireLogin();
+        Validator.Require(serial, "Serial");
+        return _serialDal.GetSalesHistory(serial.Trim());
+    }
+    public List<PhieuBaoHanhDTO> Search(string keyword = "", string trangThai = "") { Session.RequireLogin(); return _dal.Search((keyword ?? "").Trim(), trangThai); }
 
     /// <summary>Kiểm tra serial có đủ điều kiện nhận bảo hành tại ngày <paramref name="homNay"/> hay không.</summary>
     public static KetQuaBaoHanh KiemTra(SerialDTO? s, DateTime homNay)
@@ -187,22 +206,25 @@ public class BaoHanhBLL
 
     public int LapPhieu(string serial, string moTaLoi)
     {
-        if (!Session.IsLoggedIn) throw new BusinessException("Chưa đăng nhập.");
+        Session.RequireLogin();
+        Validator.Require(serial, "Serial");
         Validator.Require(moTaLoi, "Mô tả lỗi");
         var s = _serialDal.Lookup(serial.Trim());
         var kq = KiemTra(s, DateTime.Today);
         if (!kq.HopLe) throw new BusinessException(kq.ThongBao);
 
-        return _dal.Create(new PhieuBaoHanhDTO
+        try { return _dal.Create(new PhieuBaoHanhDTO
         {
-            Serial = s!.Serial, MaKH = s.MaKH, MaNV = Session.MaNV, NgayNhan = DateTime.Now,
+            Serial = s!.Serial, MaHDLucTiepNhan = s.MaHD, MaKH = s.MaKH, MaNV = Session.MaNV, NgayNhan = DateTime.Now,
             MoTaLoi = moTaLoi.Trim(), TrangThai = TrangThaiBaoHanh.DangXuLy
-        });
+        }); }
+        catch (InvalidOperationException ex) { throw new BusinessException(ex.Message); }
     }
 
     public void CapNhatKetQua(PhieuBaoHanhDTO p, string trangThaiMoi, string? ketQua)
     {
-        if (!Session.IsLoggedIn) throw new BusinessException("Chưa đăng nhập.");
+        Session.RequireLogin();
+        if (p == null) throw new BusinessException("Phiếu bảo hành không hợp lệ.");
         if (p.TrangThai != TrangThaiBaoHanh.DangXuLy)
             throw new BusinessException("Phiếu đã kết thúc, không thể thay đổi.");
         if (!TrangThaiBaoHanh.TatCa.Contains(trangThaiMoi)) throw new BusinessException("Trạng thái không hợp lệ.");
@@ -211,7 +233,8 @@ public class BaoHanhBLL
         p.TrangThai = trangThaiMoi;
         p.KetQua = Validator.Clean(ketQua);
         p.NgayTra = trangThaiMoi == TrangThaiBaoHanh.DangXuLy ? null : DateTime.Now;
-        _dal.UpdateResult(p);
+        try { _dal.UpdateResult(p); }
+        catch (InvalidOperationException ex) { throw new BusinessException(ex.Message); }
     }
 }
 
@@ -219,7 +242,11 @@ public class ThongKeBLL
 {
     private readonly ThongKeDAL _dal = new();
 
-    public TongQuanDTO TongQuan() => _dal.TongQuan(SanPhamBLL.NguongSapHet);
+    public TongQuanDTO TongQuan()
+    {
+        Session.RequireAdmin();
+        return _dal.TongQuan(SanPhamBLL.NguongSapHet);
+    }
 
     public List<DoanhThuDTO> DoanhThuTheoNgay(DateTime tu, DateTime den)
     {
@@ -231,6 +258,7 @@ public class ThongKeBLL
     /// <summary>Doanh thu 7 ngày gần nhất (đủ 7 điểm, ngày không có hóa đơn = 0) cho dashboard.</summary>
     public List<DoanhThuDTO> DoanhThu7Ngay()
     {
+        Session.RequireAdmin();
         var den = DateTime.Today;
         var tu = den.AddDays(-6);
         var data = _dal.DoanhThuTheoNgay(tu, den).ToDictionary(x => x.Ngay!.Value.Date);
@@ -250,13 +278,26 @@ public class ThongKeBLL
 
     public List<TopSanPhamDTO> TopBanChay(DateTime tu, DateTime den, int top = 10)
     {
+        Session.RequireAdmin();
         if (tu.Date > den.Date) throw new BusinessException("Từ ngày không được lớn hơn đến ngày.");
         return _dal.TopBanChay(tu, den, top);
     }
 
-    public System.Data.DataTable SanPhamSapHet(int nguong = SanPhamBLL.NguongSapHet) => _dal.SanPhamSapHet(nguong);
+    public System.Data.DataTable SanPhamSapHet(int nguong = SanPhamBLL.NguongSapHet)
+    {
+        Session.RequireAdmin();
+        return _dal.SanPhamSapHet(nguong);
+    }
 
-    public List<DoanhThuDanhMucDTO> DoanhThuTheoDanhMuc() => _dal.DoanhThuTheoDanhMuc();
+    public List<DoanhThuDanhMucDTO> DoanhThuTheoDanhMuc()
+    {
+        Session.RequireAdmin();
+        return _dal.DoanhThuTheoDanhMuc();
+    }
 
-    public List<HoaDonGanNhatDTO> HoaDonGanNhat(int top = 5) => _dal.HoaDonGanNhat(top);
+    public List<HoaDonGanNhatDTO> HoaDonGanNhat(int top = 5)
+    {
+        Session.RequireAdmin();
+        return _dal.HoaDonGanNhat(top);
+    }
 }

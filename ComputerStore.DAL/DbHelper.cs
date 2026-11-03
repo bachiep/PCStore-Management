@@ -15,10 +15,30 @@ public static class DbHelper
 
     public static MySqlConnection OpenConnection()
     {
-        var conn = new MySqlConnection(ConnectionString);
-        conn.Open();
-        return conn;
+        const int attempts = 3;
+        for (var attempt = 1; ; attempt++)
+        {
+            var conn = new MySqlConnection(ConnectionString);
+            try
+            {
+                conn.Open();
+                return conn;
+            }
+            catch (MySqlException ex) when (attempt < attempts && IsTransientConnectionError(ex))
+            {
+                conn.Dispose();
+                Thread.Sleep(500 * attempt);
+            }
+            catch
+            {
+                conn.Dispose();
+                throw;
+            }
+        }
     }
+
+    private static bool IsTransientConnectionError(MySqlException ex)
+        => ex.IsTransient || ex.Number is 0 or 1042 or 2002 or 2003 or 2006 or 2013;
 
     public static bool TestConnection(out string error)
     {
@@ -47,6 +67,15 @@ public static class DbHelper
 
     public static DataTable ExecuteQuery(string sql, params MySqlParameter[] ps)
         => ExecuteQuery(sql, CommandType.Text, ps);
+
+    public static DataTable ExecuteQuery(MySqlConnection conn, MySqlTransaction tran, string sql, params MySqlParameter[] ps)
+    {
+        using var cmd = BuildCommand(sql, conn, tran, CommandType.Text, ps);
+        using var da = new MySqlDataAdapter(cmd);
+        var dt = new DataTable();
+        da.Fill(dt);
+        return dt;
+    }
 
     public static DataTable ExecuteProcedure(string procName, params MySqlParameter[] ps)
         => ExecuteQuery(procName, CommandType.StoredProcedure, ps);
@@ -119,8 +148,49 @@ public static class DbHelper
         }
         catch
         {
-            tran.Rollback();
+            try { tran.Rollback(); }
+            catch { /* Preserve the database error that caused the rollback. */ }
             throw;
+        }
+    }
+
+    /// <summary>Tuần tự hóa một invariant dùng chung giữa nhiều phiên, rồi commit trước khi nhả khóa.</summary>
+    public static T InTransactionWithNamedLock<T>(string lockName, Func<MySqlConnection, MySqlTransaction, T> work)
+    {
+        using var conn = OpenConnection();
+        using (var acquire = new MySqlCommand("SELECT GET_LOCK(@name, 10)", conn))
+        {
+            acquire.Parameters.Add(P("@name", lockName));
+            if (Convert.ToInt32(acquire.ExecuteScalar()) != 1)
+                throw new InvalidOperationException("Không thể lấy khóa đồng bộ dữ liệu trong thời gian cho phép.");
+        }
+
+        try
+        {
+            using var tran = conn.BeginTransaction();
+            try
+            {
+                var result = work(conn, tran);
+                tran.Commit();
+                return result;
+            }
+            catch
+            {
+                try { tran.Rollback(); }
+                catch { /* Preserve the original operation error. */ }
+                throw;
+            }
+        }
+        finally
+        {
+            // Closing the connection also releases the MySQL advisory lock if release fails.
+            try
+            {
+                using var release = new MySqlCommand("SELECT RELEASE_LOCK(@name)", conn);
+                release.Parameters.Add(P("@name", lockName));
+                release.ExecuteScalar();
+            }
+            catch { }
         }
     }
 

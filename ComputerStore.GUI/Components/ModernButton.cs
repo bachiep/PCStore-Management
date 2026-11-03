@@ -108,7 +108,8 @@ public class ModernButton : Control, IButtonControl
 
         // Draw Text
         TextFormatFlags flags = TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.NoPrefix;
-        TextRenderer.DrawText(g, Text, Font, ClientRectangle, ForeColor, flags);
+        var textColor = Enabled ? ForeColor : Color.FromArgb(107, 114, 128);
+        TextRenderer.DrawText(g, Text, Font, ClientRectangle, textColor, flags);
     }
 
     public override Size GetPreferredSize(Size proposedSize)

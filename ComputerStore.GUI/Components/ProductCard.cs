@@ -9,6 +9,8 @@ public class ProductCard : ModernPanel
 {
     private readonly SanPhamDTO _product;
     private Image? _image;
+    private readonly bool _isCategoryFallback;
+    private readonly bool _isIcon;
     private bool _isHovered;
 
     public event EventHandler<SanPhamDTO>? ProductClicked;
@@ -25,10 +27,9 @@ public class ProductCard : ModernPanel
         BorderSize = 1;
         FillColor = Color.White;
 
-        if (!string.IsNullOrEmpty(sp.HinhAnh))
-        {
-            _image = Services.ProductImage.Load(sp.HinhAnh);
-        }
+        _isCategoryFallback = Services.ProductImage.IsCategoryFallback(sp.HinhAnh, sp.TenDM, sp.TenSP);
+        _isIcon = Services.ProductImage.IsIcon(sp.HinhAnh);
+        _image = Services.ProductImage.LoadForProduct(sp.HinhAnh, sp.TenDM, sp.TenSP);
 
         MouseEnter += (s, e) => { if (_product.TrangThai && _product.SoLuongTon > 0) { _isHovered = true; Invalidate(); } };
         MouseLeave += (s, e) => { _isHovered = false; Invalidate(); };
@@ -63,7 +64,7 @@ public class ProductCard : ModernPanel
         }
 
         // Draw Image or Category Badge
-        var imgRect = new Rectangle(8, 8, Width - 16, 95);
+        var imgRect = new Rectangle(8, 8, Width - 16, 83);
         if (_image != null)
         {
             float ratio = Math.Min((float)imgRect.Width / _image.Width, (float)imgRect.Height / _image.Height);
@@ -75,14 +76,23 @@ public class ProductCard : ModernPanel
         {
             using var bgBrush = new SolidBrush(ColorTranslator.FromHtml("#F1F5F9"));
             g.FillRectangle(bgBrush, imgRect);
-            var icon = GetCategoryIcon(_product.TenDM);
-            using var iconFont = new Font("Segoe UI Emoji", 24f);
-            TextRenderer.DrawText(g, icon, iconFont, new Rectangle(imgRect.X, imgRect.Y + 8, imgRect.Width, 45), Theme.Muted, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
-            TextRenderer.DrawText(g, _product.TenDM, Theme.Small, new Rectangle(imgRect.X, imgRect.Y + 55, imgRect.Width, 30), Theme.Muted, TextFormatFlags.HorizontalCenter | TextFormatFlags.Top);
+            TextRenderer.DrawText(g, "Chưa có ảnh", Theme.Small, imgRect, Theme.Muted, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+        }
+
+        if (_isCategoryFallback || _isIcon)
+        {
+            var imageBadgeRect = new Rectangle(8, 94, Width - 16, 16);
+            var badgeColor = _isIcon ? "#EDE9FE" : "#FEF3C7";
+            var textColor = _isIcon ? "#5B21B6" : "#92400E";
+            using var badgeBrush = new SolidBrush(ColorTranslator.FromHtml(badgeColor));
+            g.FillRectangle(badgeBrush, imageBadgeRect);
+            var badgeText = _isIcon ? "Biểu tượng" : "Ảnh tham khảo";
+            TextRenderer.DrawText(g, badgeText, Theme.Small, imageBadgeRect,
+                ColorTranslator.FromHtml(textColor), TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
         }
 
         // Draw Name (multiline, up to 2-3 lines)
-        var nameRect = new Rectangle(10, 110, Width - 20, 50);
+        var nameRect = new Rectangle(10, 112, Width - 20, 50);
         TextRenderer.DrawText(g, _product.TenSP, Theme.Bold, nameRect, Theme.Text, TextFormatFlags.WordBreak | TextFormatFlags.TextBoxControl);
 
         // Draw Price

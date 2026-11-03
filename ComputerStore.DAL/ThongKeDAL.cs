@@ -50,12 +50,36 @@ public class ThongKeDAL
 
     public List<DoanhThuDanhMucDTO> DoanhThuTheoDanhMuc()
     {
-        var dt = ExecuteQuery(@"SELECT dm.TenDM, IFNULL(SUM(ct.SoLuong * ct.DonGia), 0) AS DoanhThu
-                               FROM DanhMuc dm
-                               JOIN SanPham sp ON dm.MaDM = sp.MaDM
-                               JOIN ChiTietHoaDon ct ON sp.MaSP = ct.MaSP
-                               JOIN HoaDon hd ON ct.MaHD = hd.MaHD
-                               WHERE hd.DaHuy = 0
+        var dt = ExecuteQuery(@"WITH DongHoaDon AS (
+                                   SELECT ct.MaHD, ct.MaSP,
+                                          CAST(ct.SoLuong * ct.DonGia AS DECIMAL(18,0)) AS TienHang,
+                                          hd.GiamGia,
+                                          SUM(ct.SoLuong * ct.DonGia) OVER (PARTITION BY ct.MaHD) AS TongTienHang
+                                   FROM ChiTietHoaDon ct
+                                   JOIN HoaDon hd ON hd.MaHD = ct.MaHD
+                                   WHERE hd.DaHuy = 0
+                               ),
+                               TyLeGiam AS (
+                                   SELECT d.*,
+                                          CASE WHEN d.TongTienHang > 0 THEN FLOOR(d.GiamGia * d.TienHang / d.TongTienHang) ELSE 0 END AS GiamGiaCoBan,
+                                          CASE WHEN d.TongTienHang > 0 THEN MOD(d.GiamGia * d.TienHang, d.TongTienHang) ELSE 0 END AS PhanDu
+                                   FROM DongHoaDon d
+                               ),
+                               XepHangPhanDu AS (
+                                   SELECT d.*,
+                                          ROW_NUMBER() OVER (PARTITION BY d.MaHD ORDER BY d.PhanDu DESC, d.MaSP) AS HangPhanDu,
+                                          SUM(d.GiamGiaCoBan) OVER (PARTITION BY d.MaHD) AS TongGiamGiaCoBan
+                                   FROM TyLeGiam d
+                               ),
+                               DongDaPhanBo AS (
+                                   SELECT d.*,
+                                          d.GiamGiaCoBan + CASE WHEN d.HangPhanDu <= d.GiamGia - d.TongGiamGiaCoBan THEN 1 ELSE 0 END AS GiamGiaPhanBo
+                                   FROM XepHangPhanDu d
+                               )
+                               SELECT dm.TenDM, SUM(d.TienHang - d.GiamGiaPhanBo) AS DoanhThu
+                               FROM DongDaPhanBo d
+                               JOIN SanPham sp ON sp.MaSP = d.MaSP
+                               JOIN DanhMuc dm ON dm.MaDM = sp.MaDM
                                GROUP BY dm.MaDM, dm.TenDM
                                HAVING DoanhThu > 0
                                ORDER BY DoanhThu DESC");

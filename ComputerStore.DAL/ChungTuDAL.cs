@@ -33,12 +33,23 @@ public class PhieuNhapDAL
     /// </summary>
     public int Create(PhieuNhapDTO pn, IList<ChiTietPhieuNhapDTO> items) => InTransaction((conn, tran) =>
     {
+        // Khóa tất cả sản phẩm theo cùng một thứ tự trước khi thêm chi tiết.
+        // Nếu chỉ khóa ở UPDATE sau INSERT ChiTietPhieuNhap, hai giao dịch có thể
+        // cùng giữ shared FK lock trên một sản phẩm rồi deadlock khi nâng lên X lock.
+        var orderedItems = items.OrderBy(x => x.MaSP).ToList();
+        foreach (var item in orderedItems)
+        {
+            if (ExecuteScalar(conn, tran, "SELECT MaSP FROM SanPham WHERE MaSP = @sp FOR UPDATE",
+                    P("@sp", item.MaSP)) == null)
+                throw new InvalidOperationException($"Không tìm thấy sản phẩm {item.MaSP}.");
+        }
+
         var maPN = ExecuteInsert(conn, tran,
             @"INSERT INTO PhieuNhap(NgayNhap, MaNCC, MaNV, TongTien, GhiChu)
               VALUES(@ng, @ncc, @nv, @tt, @gc)",
             P("@ng", pn.NgayNhap), P("@ncc", pn.MaNCC), P("@nv", pn.MaNV), P("@tt", pn.TongTien), P("@gc", pn.GhiChu));
 
-        foreach (var it in items)
+        foreach (var it in orderedItems)
         {
             ExecuteNonQuery(conn, tran, "INSERT INTO ChiTietPhieuNhap(MaPN, MaSP, SoLuong, DonGia) VALUES(@pn, @sp, @sl, @dg)",
                 P("@pn", maPN), P("@sp", it.MaSP), P("@sl", it.SoLuong), P("@dg", it.DonGia));
@@ -46,7 +57,7 @@ public class PhieuNhapDAL
             ExecuteNonQuery(conn, tran, "UPDATE SanPham SET SoLuongTon = SoLuongTon + @sl, GiaNhap = @dg WHERE MaSP = @sp",
                 P("@sl", it.SoLuong), P("@dg", it.DonGia), P("@sp", it.MaSP));
 
-            foreach (var serial in it.Serials)
+            foreach (var serial in it.Serials.OrderBy(s => s, StringComparer.Ordinal))
                 ExecuteNonQuery(conn, tran, "INSERT INTO SanPhamSerial(Serial, MaSP, MaPN, TrangThai) VALUES(@s, @sp, @pn, 'TrongKho')",
                     P("@s", serial), P("@sp", it.MaSP), P("@pn", maPN));
         }
@@ -88,15 +99,17 @@ public class HoaDonDAL
     public List<ChiTietHoaDonDTO> GetDetails(int maHD)
     {
         var items = DbHelper.Map(
-            ExecuteQuery(@"SELECT ct.*, sp.TenSP, sp.ThoiGianBH FROM ChiTietHoaDon ct
-                           JOIN SanPham sp ON sp.MaSP = ct.MaSP WHERE ct.MaHD = @id", P("@id", maHD)),
+            ExecuteQuery(@"SELECT ct.*, ct.TenSPKhiBan AS TenSP,
+                                  ct.ThoiGianBHKhiBan AS ThoiGianBH
+                           FROM ChiTietHoaDon ct JOIN SanPham sp ON sp.MaSP = ct.MaSP WHERE ct.MaHD = @id", P("@id", maHD)),
             r => new ChiTietHoaDonDTO
             {
-                MaHD = r.Int("MaHD"), MaSP = r.Int("MaSP"), TenSP = r.Str("TenSP"), SoLuong = r.Int("SoLuong"),
-                DonGia = r.Dec("DonGia"), ThoiGianBH = r.Int("ThoiGianBH")
+                MaHD = r.Int("MaHD"), MaSP = r.Int("MaSP"), TenSP = r.StrN("TenSP") ?? "Không có snapshot lịch sử", SoLuong = r.Int("SoLuong"),
+                DonGia = r.Dec("DonGia"), ThoiGianBH = r.IntN("ThoiGianBH"),
+                TenSPKhiBan = r.StrN("TenSPKhiBan"), ThoiGianBHKhiBan = r.Int("ThoiGianBHKhiBan")
             });
 
-        var serials = ExecuteQuery("SELECT Serial, MaSP FROM SanPhamSerial WHERE MaHD = @id ORDER BY Serial", P("@id", maHD));
+        var serials = ExecuteQuery("SELECT Serial, MaSP FROM LichSuBanSerial WHERE MaHD = @id ORDER BY Serial", P("@id", maHD));
         foreach (DataRow r in serials.Rows)
             items.FirstOrDefault(i => i.MaSP == r.Int("MaSP"))?.Serials.Add(r.Str("Serial"));
         return items;
@@ -114,10 +127,22 @@ public class HoaDonDAL
             P("@ng", hd.NgayLap), P("@kh", hd.MaKH), P("@nv", hd.MaNV), P("@tt", hd.TongTien),
             P("@gg", hd.GiamGia), P("@thtt", hd.ThanhToan), P("@gc", hd.GhiChu), P("@httt", hd.HinhThucTT));
 
-        foreach (var it in items)
+        foreach (var it in items.OrderBy(x => x.MaSP))
         {
-            ExecuteNonQuery(conn, tran, "INSERT INTO ChiTietHoaDon(MaHD, MaSP, SoLuong, DonGia) VALUES(@hd, @sp, @sl, @dg)",
-                P("@hd", maHD), P("@sp", it.MaSP), P("@sl", it.SoLuong), P("@dg", it.DonGia));
+            var product = ExecuteQuery(conn, tran, "SELECT TenSP, ThoiGianBH, GiaBan FROM SanPham WHERE MaSP=@sp AND TrangThai=1 FOR UPDATE", P("@sp", it.MaSP));
+            if (product.Rows.Count == 0) throw new InvalidOperationException($"Sản phẩm \"{it.TenSP}\" không còn kinh doanh.");
+            var tenSP = product.Rows[0].Str("TenSP");
+            var thoiGianBH = product.Rows[0].Int("ThoiGianBH");
+            var giaBan = product.Rows[0].Dec("GiaBan");
+            if (it.DonGia != giaBan)
+                throw new InvalidOperationException($"Giá của sản phẩm \"{tenSP}\" đã thay đổi. Hãy cập nhật giỏ hàng trước khi thanh toán.");
+            it.TenSPKhiBan = tenSP;
+            it.ThoiGianBHKhiBan = thoiGianBH;
+            it.ThoiGianBH = thoiGianBH;
+
+            ExecuteNonQuery(conn, tran, @"INSERT INTO ChiTietHoaDon(MaHD, MaSP, SoLuong, DonGia, TenSPKhiBan, ThoiGianBHKhiBan)
+                                          VALUES(@hd, @sp, @sl, @dg, @ten, @bh)",
+                P("@hd", maHD), P("@sp", it.MaSP), P("@sl", it.SoLuong), P("@dg", it.DonGia), P("@ten", tenSP), P("@bh", thoiGianBH));
 
             var affected = ExecuteNonQuery(conn, tran,
                 "UPDATE SanPham SET SoLuongTon = SoLuongTon - @sl WHERE MaSP = @sp AND SoLuongTon >= @sl",
@@ -125,14 +150,20 @@ public class HoaDonDAL
             if (affected == 0)
                 throw new InvalidOperationException($"Sản phẩm \"{it.TenSP}\" không đủ hàng trong kho.");
 
-            foreach (var serial in it.Serials)
+            foreach (var serial in it.Serials.OrderBy(s => s, StringComparer.Ordinal))
             {
                 var ok = ExecuteNonQuery(conn, tran,
-                    @"UPDATE SanPhamSerial SET MaHD = @hd, NgayBan = @ng, HanBH = DATE_ADD(CAST(@ng AS DATE), INTERVAL @bh MONTH),
+                    @"UPDATE SanPhamSerial SET MaHD = @hd, NgayBan = @ng,
+                      HanBH = CASE WHEN @bh > 0 THEN DATE_ADD(CAST(@ng AS DATE), INTERVAL @bh MONTH) ELSE NULL END,
                       TrangThai = 'DaBan' WHERE Serial = @s AND MaSP = @sp AND TrangThai = 'TrongKho'",
-                    P("@hd", maHD), P("@ng", hd.NgayLap), P("@bh", it.ThoiGianBH), P("@s", serial), P("@sp", it.MaSP));
+                    P("@hd", maHD), P("@ng", hd.NgayLap), P("@bh", thoiGianBH), P("@s", serial), P("@sp", it.MaSP));
                 if (ok == 0)
                     throw new InvalidOperationException($"Serial {serial} không hợp lệ hoặc đã được bán.");
+
+                ExecuteNonQuery(conn, tran, @"INSERT INTO LichSuBanSerial(MaHD, MaSP, Serial, NgayBan, HanBH)
+                                              VALUES(@hd, @sp, @s, @ng,
+                                                     CASE WHEN @bh > 0 THEN DATE_ADD(CAST(@ng AS DATE), INTERVAL @bh MONTH) ELSE NULL END)",
+                    P("@hd", maHD), P("@sp", it.MaSP), P("@s", serial), P("@ng", hd.NgayLap), P("@bh", thoiGianBH));
             }
         }
         return maHD;
@@ -149,9 +180,22 @@ public class HoaDonDAL
             P("@ld", lyDo), P("@id", maHD));
         if (daHuy == 0) throw new InvalidOperationException("Hóa đơn không tồn tại hoặc đã bị hủy trước đó.");
 
-        var bh = Convert.ToInt32(ExecuteScalar(conn, tran,
-            "SELECT COUNT(*) FROM SanPhamSerial WHERE MaHD = @id AND TrangThai = 'DangBaoHanh'", P("@id", maHD)));
-        if (bh > 0) throw new InvalidOperationException("Hóa đơn có sản phẩm đang bảo hành, không thể hủy.");
+        // Khóa sản phẩm theo cùng thứ tự POS/nhập kho trước khi khóa serial để tránh
+        // tạo chu trình product -> serial và serial -> product giữa các giao dịch.
+        var productIds = ExecuteQuery(conn, tran,
+            "SELECT DISTINCT MaSP FROM ChiTietHoaDon WHERE MaHD=@id ORDER BY MaSP", P("@id", maHD));
+        foreach (DataRow row in productIds.Rows)
+            ExecuteQuery(conn, tran, "SELECT MaSP FROM SanPham WHERE MaSP=@sp FOR UPDATE", P("@sp", row.Int("MaSP")));
+
+        // Khóa serial trước khi kiểm tra: tiếp nhận bảo hành cũng khóa cùng hàng,
+        // nên không thể lọt một phiếu mới giữa lúc kiểm tra và trả serial về kho.
+        var serials = ExecuteQuery(conn, tran,
+            "SELECT Serial, TrangThai FROM SanPhamSerial WHERE MaHD=@id ORDER BY Serial FOR UPDATE", P("@id", maHD));
+        if (serials.Rows.Cast<DataRow>().Any(r => r.Str("TrangThai") == TrangThaiSerial.DangBaoHanh))
+            throw new InvalidOperationException("Hóa đơn có sản phẩm đang bảo hành, không thể hủy.");
+        var warrantyHistory = ExecuteQuery(conn, tran,
+            "SELECT MaPBH FROM PhieuBaoHanh WHERE MaHDLucTiepNhan=@id FOR UPDATE", P("@id", maHD));
+        if (warrantyHistory.Rows.Count > 0) throw new InvalidOperationException("Hóa đơn có lịch sử bảo hành, không thể hủy.");
 
         ExecuteNonQuery(conn, tran,
             @"UPDATE SanPham sp JOIN ChiTietHoaDon ct ON ct.MaSP = sp.MaSP

@@ -1,4 +1,7 @@
 using ComputerStore.BLL;
+using ComputerStore.DAL;
+using ComputerStore.GUI.Forms;
+using MySqlConnector;
 
 namespace ComputerStore.GUI.Pages;
 
@@ -23,7 +26,11 @@ public class ucHeThong : PageBase
             Theme.Col("ChiTiet", "Chi tiết", weight: 3f));
 
         AddRow(Toolbar(btnBackup, btnRestore, ExportButton(_grid, "NhatKyThaoTac"), btnLog));
-        AddRow(Theme.Caption("Khôi phục sẽ GHI ĐÈ toàn bộ dữ liệu hiện tại bằng file sao lưu — hãy sao lưu trước. Bảng dưới là nhật ký thao tác gần đây."));
+        var warning = Theme.Caption("Tệp sao lưu SQL chưa được mã hóa; chứa dữ liệu khách hàng, nhân viên, hash mật khẩu và nhật ký. Hãy lưu ở nơi an toàn, hạn chế chia sẻ. Khôi phục sẽ GHI ĐÈ toàn bộ dữ liệu hiện tại.");
+        warning.AutoSize = false;
+        warning.Height = 64;
+        AddRow(warning);
+        AddRow(Theme.Caption("Bảng dưới là nhật ký thao tác gần đây."));
         AddRow(GridCard(_grid), fill: true);
     }
 
@@ -40,7 +47,20 @@ public class ucHeThong : PageBase
     {
         using var dlg = new OpenFileDialog { Filter = "SQL backup|*.sql" };
         if (dlg.ShowDialog() != DialogResult.OK) return;
-        if (!Ask("Khôi phục sẽ GHI ĐÈ toàn bộ dữ liệu hiện tại. Bạn chắc chắn tiếp tục?")) return;
+        var targetDatabase = new MySqlConnectionStringBuilder(DbHelper.ConnectionString).Database;
+        string? sourceDatabase;
+        try { sourceDatabase = _bll.BackupSourceDatabase(dlg.FileName); }
+        catch (Exception ex) { Msg.Error(ex.Message); return; }
+
+        var source = string.IsNullOrWhiteSpace(sourceDatabase) ? "không xác định (backup phiên bản cũ)" : sourceDatabase;
+        if (!Ask($"Khôi phục sẽ GHI ĐÈ toàn bộ dữ liệu trong CSDL đích '{targetDatabase}'.\nCSDL nguồn của file: '{source}'. Bạn chắc chắn tiếp tục?")) return;
+        var confirmation = InputDialog.Ask(this, "Xác nhận CSDL đích",
+            $"Nhập chính xác tên CSDL sẽ bị ghi đè: {targetDatabase}");
+        if (!string.Equals(confirmation?.Trim(), targetDatabase, StringComparison.Ordinal))
+        {
+            Msg.Warn("Tên CSDL xác nhận không khớp. Đã hủy khôi phục.");
+            return;
+        }
         Msg.Run(() => { var n = _bll.Restore(dlg.FileName); Msg.Info($"Đã khôi phục ({n:N0} câu lệnh). Hãy đăng nhập lại nếu tài khoản thay đổi."); LoadData(); });
     }
 }

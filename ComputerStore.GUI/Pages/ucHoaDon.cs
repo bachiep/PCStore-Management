@@ -8,9 +8,9 @@ public class ucHoaDon : PageBase
 {
     private readonly HoaDonBLL _bll = new();
     
-    private readonly TextBox _search = Theme.Input(260, "Tìm SĐT, tên khách, ghi chú...");
-    private readonly DateTimePicker _tuNgay = new() { Format = DateTimePickerFormat.Custom, CustomFormat = "dd/MM/yyyy", Font = Theme.Base, Width = 120 };
-    private readonly DateTimePicker _denNgay = new() { Format = DateTimePickerFormat.Custom, CustomFormat = "dd/MM/yyyy", Font = Theme.Base, Width = 120 };
+    private readonly TextBox _search = Theme.Input(150, "Tìm SĐT hoặc khách...");
+    private readonly DateTimePicker _tuNgay = new() { Format = DateTimePickerFormat.Custom, CustomFormat = "dd/MM/yyyy", Font = Theme.Base, Width = 110 };
+    private readonly DateTimePicker _denNgay = new() { Format = DateTimePickerFormat.Custom, CustomFormat = "dd/MM/yyyy", Font = Theme.Base, Width = 110 };
     private readonly DataGridView _grid = Theme.Grid();
 
     public ucHoaDon() : base("Hóa đơn bán hàng")
@@ -22,10 +22,10 @@ public class ucHoaDon : PageBase
         _grid.AutoGenerateColumns = false;
         _grid.Columns.AddRange(
             Theme.Col("MaHD", "Mã HĐ", weight: 0.6f),
-            Theme.Col("NgayLap", "Ngày lập", weight: 1.2f, format: "dd/MM/yyyy HH:mm"),
-            Theme.Col("TenKH", "Khách hàng", weight: 1.5f),
+            Theme.Col("NgayLap", "Ngày lập", weight: 1.35f, format: "dd/MM/yy HH:mm"),
+            Theme.Col("TenKH", "Khách hàng", weight: 1.4f),
             Theme.Col("SDTKH", "SĐT", weight: 1f),
-            Theme.Col("TenNV", "Nhân viên", weight: 1.4f),
+            Theme.Col("TenNV", "Nhân viên", weight: 1.3f),
             Theme.Col("HinhThucTT", "Hình thức TT", weight: 1.1f),
             Theme.Col("TrangThaiText", "Trạng thái", weight: 0.9f),
             Theme.Col("ThanhToan", "Thanh toán", weight: 1f, format: "N0", right: true)
@@ -41,16 +41,16 @@ public class ucHoaDon : PageBase
         _tuNgay.ValueChanged += (_, _) => LoadList();
         _denNgay.ValueChanged += (_, _) => LoadList();
 
-        var btnDetail = Theme.GhostButton("Xem chi tiết", 120, (_, _) => XemChiTiet());
-        var btnPrint = Theme.PrimaryButton("In hóa đơn", 120, (_, _) => InHoaDon());
-        var btnRefresh = Theme.GhostButton("Làm mới", 90, (_, _) => LoadList());
+        var btnDetail = Theme.GhostButton("Chi tiết", 88, (_, _) => XemChiTiet());
+        var btnPrint = Theme.PrimaryButton("In hóa đơn", 90, (_, _) => InHoaDon());
+        var btnRefresh = Theme.GhostButton("Làm mới", 68, (_, _) => LoadList());
 
         var pnlL = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.LeftToRight };
         pnlL.Controls.Add(new Label { Text = "Từ ngày:", AutoSize = true, Margin = new Padding(0, 7, 5, 0) });
         pnlL.Controls.Add(_tuNgay);
-        pnlL.Controls.Add(new Label { Text = "Đến:", AutoSize = true, Margin = new Padding(10, 7, 5, 0) });
+        pnlL.Controls.Add(new Label { Text = "Đến:", AutoSize = true, Margin = new Padding(6, 7, 5, 0) });
         pnlL.Controls.Add(_denNgay);
-        var btnCancel = Theme.DangerButton("Hủy hóa đơn", 120, (_, _) => HuyHoaDon());
+        var btnCancel = Theme.DangerButton("Hủy HĐ", 72, (_, _) => HuyHoaDon());
         btnCancel.Visible = Session.IsAdmin;
 
         var infoHD = Theme.InfoBadge(
@@ -59,7 +59,38 @@ public class ucHoaDon : PageBase
             "• Hủy hóa đơn (Chỉ Admin): Yêu cầu nhập lý do; hệ thống tự động hoàn trả số lượng tồn kho và giải phóng serial sản phẩm tương ứng.",
             "Quy tắc Quản lý Hóa đơn");
 
-        AddRow(Toolbar(_search, pnlL, btnRefresh, btnDetail, btnPrint, ExportButton(_grid, "DanhSachHoaDon"), btnCancel, infoHD));
+        var filterRow = new FlowLayoutPanel
+        {
+            AutoSize = true, WrapContents = false, FlowDirection = FlowDirection.LeftToRight,
+            Margin = new Padding(0), Padding = new Padding(0), BackColor = Color.Transparent
+        };
+        filterRow.Controls.Add(Theme.SearchField(_search, "Tìm SĐT hoặc khách"));
+        filterRow.Controls.Add(pnlL);
+
+        var actionRow = new FlowLayoutPanel
+        {
+            AutoSize = true, WrapContents = false, FlowDirection = FlowDirection.LeftToRight,
+            Margin = new Padding(0), Padding = new Padding(0), BackColor = Color.Transparent
+        };
+        actionRow.Controls.Add(btnRefresh);
+        actionRow.Controls.Add(btnDetail);
+        actionRow.Controls.Add(btnPrint);
+        actionRow.Controls.Add(ExportButton(_grid, "DanhSachHoaDon", 92));
+        actionRow.Controls.Add(btnCancel);
+        actionRow.Controls.Add(infoHD);
+
+        var toolbar = new TableLayoutPanel
+        {
+            ColumnCount = 1, RowCount = 2, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            Dock = DockStyle.Top, Margin = new Padding(0, 0, 0, 10), BackColor = Color.Transparent
+        };
+        toolbar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        toolbar.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        toolbar.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        actionRow.Margin = new Padding(0, 6, 0, 0);
+        toolbar.Controls.Add(filterRow, 0, 0);
+        toolbar.Controls.Add(actionRow, 0, 1);
+        AddRow(toolbar);
         AddRow(GridCard(_grid), fill: true);
     }
 

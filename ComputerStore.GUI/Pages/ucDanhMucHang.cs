@@ -31,7 +31,7 @@ public class ucDanhMucHang : PageBase
             Theme.Col("SoSanPham", "Số sản phẩm", weight: 1.2f, right: true));
         _gridDM.CellDoubleClick += (_, _) => EditCategory();
 
-        var btnAdd = Theme.PrimaryButton("+ Thêm danh mục", 140, (_, _) => AddCategory()); btnAdd.Name = "btnThemDanhMuc"; btnAdd.Enabled = IsAdmin;
+        var btnAdd = Theme.PrimaryButton("+ Thêm danh mục", 164, (_, _) => AddCategory()); btnAdd.Name = "btnThemDanhMuc"; btnAdd.Enabled = IsAdmin;
         var btnEdit = Theme.GhostButton("Sửa tên", 90, (_, _) => EditCategory()); btnEdit.Enabled = IsAdmin;
         var btnDel = Theme.DangerButton("Xóa", 80, (_, _) => DeleteCategory()); btnDel.Enabled = IsAdmin;
         var btnRefresh = Theme.GhostButton("Làm mới", 90, (_, _) => LoadCategories());

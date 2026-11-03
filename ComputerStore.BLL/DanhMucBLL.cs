@@ -6,7 +6,7 @@ namespace ComputerStore.BLL;
 public class DanhMucBLL
 {
     private readonly DanhMucDAL _dal = new();
-    public List<DanhMucDTO> GetAll() => _dal.GetAll();
+    public List<DanhMucDTO> GetAll() { Session.RequireLogin(); return _dal.GetAll(); }
 
     public void Save(DanhMucDTO d)
     {
@@ -28,7 +28,7 @@ public class DanhMucBLL
 public class HangBLL
 {
     private readonly HangDAL _dal = new();
-    public List<HangDTO> GetAll() => _dal.GetAll();
+    public List<HangDTO> GetAll() { Session.RequireLogin(); return _dal.GetAll(); }
 
     public void Save(HangDTO h)
     {
@@ -54,9 +54,9 @@ public class SanPhamBLL
     public const int NguongSapHet = 5;
 
     public List<SanPhamDTO> Search(string keyword = "", int maDM = 0, int maHang = 0, bool chiDangBan = false)
-        => _dal.Search(keyword.Trim(), maDM, maHang, chiDangBan);
+    { Session.RequireLogin(); return _dal.Search((keyword ?? "").Trim(), maDM, maHang, chiDangBan); }
 
-    public SanPhamDTO? GetById(int id) => _dal.GetById(id);
+    public SanPhamDTO? GetById(int id) { Session.RequireLogin(); return _dal.GetById(id); }
 
     public static void Validate(SanPhamDTO s)
     {
@@ -103,7 +103,7 @@ public class SanPhamBLL
 public class NhaCungCapBLL
 {
     private readonly NhaCungCapDAL _dal = new();
-    public List<NhaCungCapDTO> Search(string keyword = "") => _dal.Search(keyword.Trim());
+    public List<NhaCungCapDTO> Search(string keyword = "") { Session.RequireAdmin(); return _dal.Search((keyword ?? "").Trim()); }
 
     public void Save(NhaCungCapDTO n)
     {
@@ -126,8 +126,8 @@ public class NhaCungCapBLL
 public class KhachHangBLL
 {
     private readonly KhachHangDAL _dal = new();
-    public List<KhachHangDTO> Search(string keyword = "") => _dal.Search(keyword.Trim());
-    public KhachHangDTO? GetByPhone(string sdt) => _dal.GetByPhone(sdt.Trim());
+    public List<KhachHangDTO> Search(string keyword = "") { Session.RequireLogin(); return _dal.Search(keyword.Trim()); }
+    public KhachHangDTO? GetByPhone(string sdt) { Session.RequireLogin(); return _dal.GetByPhone(sdt.Trim()); }
 
     public static void Validate(KhachHangDTO k)
     {
@@ -139,6 +139,7 @@ public class KhachHangBLL
 
     public int Save(KhachHangDTO k)
     {
+        Session.RequireLogin();
         k.HoTen = k.HoTen.Trim(); k.SDT = k.SDT.Trim(); k.Email = Validator.Clean(k.Email); k.DiaChi = Validator.Clean(k.DiaChi);
         Validate(k);
         if (_dal.PhoneExists(k.SDT, k.MaKH)) throw new BusinessException("Số điện thoại đã được dùng cho khách hàng khác.");
@@ -149,6 +150,7 @@ public class KhachHangBLL
 
     public void Delete(int id)
     {
+        Session.RequireAdmin();
         if (_dal.HasInvoices(id)) throw new BusinessException("Khách hàng đã có hóa đơn, không thể xóa.");
         _dal.Delete(id);
     }
@@ -157,7 +159,7 @@ public class KhachHangBLL
 public class NhanVienBLL
 {
     private readonly NhanVienDAL _dal = new();
-    public List<NhanVienDTO> Search(string keyword = "") => _dal.Search(keyword.Trim());
+    public List<NhanVienDTO> Search(string keyword = "") { Session.RequireAdmin(); return _dal.Search((keyword ?? "").Trim()); }
 
     public int Save(NhanVienDTO nv)
     {
@@ -173,10 +175,9 @@ public class NhanVienBLL
         if (nv.MaNV == 0) return _dal.Insert(nv);
         if (!nv.TrangThai)
         {
-            var tk = new TaiKhoanDAL();
-            if (tk.IsActiveAdminOfEmployee(nv.MaNV) && tk.CountActiveAdmins() <= 1)
+            if (!new TaiKhoanDAL().DeactivateEmployee(nv))
                 throw new BusinessException("Đây là quản trị viên hoạt động cuối cùng, không thể cho nghỉ việc.");
-            tk.LockByEmployee(nv.MaNV);
+            return nv.MaNV;
         }
         _dal.Update(nv);
         return nv.MaNV;
@@ -186,8 +187,11 @@ public class NhanVienBLL
     {
         Session.RequireAdmin();
         if (id == Session.MaNV) throw new BusinessException("Không thể xóa chính tài khoản đang đăng nhập.");
-        if (_dal.HasActivity(id)) throw new BusinessException("Nhân viên đã có giao dịch (hóa đơn/phiếu nhập/bảo hành) nên không thể xóa. Hãy bỏ chọn \"Đang làm việc\" để cho nghỉ việc.");
-        _dal.Delete(id);
+        if (!_dal.Delete(id))
+        {
+            if (_dal.HasActivity(id)) throw new BusinessException("Nhân viên đã có giao dịch (hóa đơn/phiếu nhập/bảo hành) nên không thể xóa. Hãy bỏ chọn \"Đang làm việc\" để cho nghỉ việc.");
+            throw new BusinessException("Không thể xóa quản trị viên đang hoạt động cuối cùng.");
+        }
         Audit.Log("Xóa nhân viên", $"#{id}");
     }
 }

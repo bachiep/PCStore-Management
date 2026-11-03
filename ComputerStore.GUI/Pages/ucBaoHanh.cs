@@ -5,9 +5,14 @@ namespace ComputerStore.GUI.Pages;
 
 public class ucBaoHanh : PageBase
 {
+    private sealed record TicketDraft(string KetQua, string TrangThai);
+
     private readonly BaoHanhBLL _bll = new();
+    private readonly Dictionary<int, TicketDraft> _ticketDrafts = new();
     
     private readonly DataGridView _grid = Theme.Grid();
+    private readonly DataGridView _gridSales = Theme.Grid();
+    private readonly DataGridView _gridWarrantyHistory = Theme.Grid();
     private readonly TextBox _search = Theme.Input(200, "Tìm serial, tên khách...");
     private readonly ComboBox _cboTrangThaiLoc = Theme.Combo();
 
@@ -18,6 +23,9 @@ public class ucBaoHanh : PageBase
     private readonly TextBox _txtKetQua = Theme.Input(320);
     private readonly ComboBox _cboTrangThaiCapNhat = Theme.Combo();
     private readonly Components.ModernButton _btnCapNhat;
+    private readonly TabControl _leftTabs = new() { Dock = DockStyle.Fill };
+    private readonly TabPage _ticketsTab = new("Phiếu bảo hành");
+    private readonly TabPage _historyTab = new("Lịch sử serial");
     
     private PhieuBaoHanhDTO? _selectedPhieu;
     private SerialDTO? _currentSerial;
@@ -34,27 +42,58 @@ public class ucBaoHanh : PageBase
         
         _cboTrangThaiCapNhat.Items.AddRange(TrangThaiBaoHanh.TatCa);
         _cboTrangThaiCapNhat.DropDownStyle = ComboBoxStyle.DropDownList;
+        TrackChanges(_txtKetQua, _cboTrangThaiCapNhat);
 
         _grid.AutoGenerateColumns = false;
         _grid.Columns.AddRange(
-            Theme.Col("MaPBH", "Mã", weight: 0.5f),
-            Theme.Col("Serial", "Serial", weight: 1.2f),
-            Theme.Col("TenSP", "Sản phẩm", weight: 1.5f),
-            Theme.Col("TenKH", "Khách hàng", weight: 1.2f),
-            Theme.Col("NgayNhan", "Ngày nhận", weight: 1f, format: "dd/MM/yyyy"),
-            Theme.Col("TrangThai", "Trạng thái", weight: 1f)
+            Theme.Col("MaPBH", "Mã", weight: 0.4f),
+            Theme.Col("Serial", "Serial", weight: 1.5f),
+            Theme.Col("TenSP", "Sản phẩm", weight: 2f),
+            Theme.Col("TenKH", "Khách hàng", weight: 1.8f),
+            Theme.Col("NgayNhan", "Ngày nhận", weight: 0.8f, format: "dd/MM/yy"),
+            Theme.Col("TrangThai", "Trạng thái", weight: 1.1f)
         );
         _grid.SelectionChanged += (_, _) => ShowSelected();
+
+        _gridSales.AutoGenerateColumns = false;
+        _gridSales.Columns.AddRange(
+            Theme.Col("MaHD", "Mã HĐ", weight: 0.55f),
+            Theme.Col("NgayBan", "Ngày bán", weight: 0.8f, format: "dd/MM/yyyy"),
+            Theme.Col("TenKH", "Khách hàng", weight: 1.4f),
+            Theme.Col("DonGia", "Đơn giá", weight: 0.8f, format: "N0", right: true),
+            Theme.Col("HanBH", "Hạn BH", weight: 0.8f, format: "dd/MM/yyyy"),
+            Theme.Col("TrangThaiText", "Trạng thái", weight: 0.9f)
+        );
+
+        _gridWarrantyHistory.AutoGenerateColumns = false;
+        _gridWarrantyHistory.Columns.AddRange(
+            Theme.Col("MaPBH", "Mã phiếu", weight: 0.6f),
+            Theme.Col("MaHDLucTiepNhan", "Mã HĐ", weight: 0.6f),
+            Theme.Col("NgayNhan", "Ngày nhận", weight: 0.8f, format: "dd/MM/yyyy"),
+            Theme.Col("MoTaLoi", "Mô tả lỗi", weight: 1.5f),
+            Theme.Col("KetQua", "Kết quả", weight: 1.5f),
+            Theme.Col("TrangThai", "Trạng thái", weight: 1f),
+            Theme.Col("NgayTra", "Ngày trả", weight: 0.8f, format: "dd/MM/yyyy")
+        );
 
         Debounce(_search, LoadPhieu);
         _cboTrangThaiLoc.SelectedIndexChanged += (_, _) => LoadPhieu();
 
         var btnTraCuu = Theme.GhostButton("Tra cứu", 80, (_, _) => TraCuu());
-        _txtMoTa.Multiline = true; _txtMoTa.Height = 60;
-        _txtKetQua.Multiline = true; _txtKetQua.Height = 60;
+        _txtSerial.TextChanged += (_, _) => ClearLookupResult();
+        _txtSerial.KeyDown += (_, e) =>
+        {
+            if (e.KeyCode == Keys.Enter)
+            {
+                e.SuppressKeyPress = true;
+                TraCuu();
+            }
+        };
+        _txtMoTa.Multiline = true; _txtMoTa.Height = 44;
+        _txtKetQua.Multiline = true; _txtKetQua.Height = 44;
 
         var lapPhieuCard = EditorCard("Lập phiếu mới",
-            Theme.Row(_txtSerial, btnTraCuu),
+            Theme.Row(Theme.SearchField(_txtSerial, "Nhập serial để tra cứu"), btnTraCuu),
             _lblInfo,
             Theme.Field("Mô tả lỗi *", _txtMoTa, 320),
             Theme.Row(_btnLapPhieu)
@@ -66,10 +105,13 @@ public class ucBaoHanh : PageBase
             Theme.Row(_btnCapNhat)
         );
 
+        CompactEditorCard(lapPhieuCard);
+        CompactEditorCard(capNhatCard);
+
         var rightPanel = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 2, Margin = new Padding(0) };
         rightPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        rightPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 55));
-        rightPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 45));
+        rightPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 50));
+        rightPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 50));
         
         lapPhieuCard.Dock = DockStyle.Fill; lapPhieuCard.Margin = new Padding(14, 0, 0, 12);
         capNhatCard.Dock = DockStyle.Fill; capNhatCard.Margin = new Padding(14, 0, 0, 0);
@@ -83,14 +125,52 @@ public class ucBaoHanh : PageBase
             "• Vòng đời tiếp nhận phiếu: Tiếp nhận -> Đang sửa chữa -> Đã xử lý -> Đã trả khách.",
             "Quy trình Bảo hành");
 
-        AddRow(Toolbar(_search, _cboTrangThaiLoc, Theme.GhostButton("Làm mới", 80, (_, _) => LoadPhieu()), infoBH));
-        AddRow(TwoCols(GridCard(_grid), rightPanel, 370), fill: true);
+        AddRow(Toolbar(Theme.SearchField(_search, "Tìm serial hoặc tên khách"), _cboTrangThaiLoc, Theme.GhostButton("Làm mới", 80, (_, _) => LoadPhieu()), infoBH));
+        _ticketsTab.Controls.Add(GridCard(_grid));
+        var historyTabs = new TabControl { Dock = DockStyle.Fill };
+        historyTabs.TabPages.Add(new TabPage("Lịch sử bán") { Controls = { GridCard(_gridSales) } });
+        historyTabs.TabPages.Add(new TabPage("Lịch sử bảo hành") { Controls = { GridCard(_gridWarrantyHistory) } });
+        _historyTab.Controls.Add(historyTabs);
+        _leftTabs.TabPages.Add(_ticketsTab);
+        _leftTabs.TabPages.Add(_historyTab);
+
+        AddRow(TwoCols(_leftTabs, rightPanel, 340), fill: true);
         
         ClearLapPhieu();
         ClearCapNhat();
     }
 
+    private static void CompactEditorCard(Panel card)
+    {
+        card.Padding = new Padding(16, 12, 16, 12);
+        foreach (var flow in card.Controls.OfType<FlowLayoutPanel>())
+        {
+            if (flow.Dock == DockStyle.Bottom)
+            {
+                flow.Padding = new Padding(0, 4, 0, 0);
+                continue;
+            }
+
+            foreach (Control control in flow.Controls)
+            {
+                var bottom = control is Label ? 8 : 4;
+                control.Margin = new Padding(control.Margin.Left, control.Margin.Top, control.Margin.Right, Math.Min(control.Margin.Bottom, bottom));
+            }
+        }
+    }
+
     public override void LoadData() => LoadPhieu();
+
+    public override bool HasUnsavedChanges => _ticketDrafts.Count > 0 || HasTrackedChanges
+        || !string.IsNullOrWhiteSpace(_txtSerial.Text) || !string.IsNullOrWhiteSpace(_txtMoTa.Text);
+    public override bool ConfirmDiscardOnNavigation => true;
+
+    public override void AcknowledgeDiscardedChanges()
+    {
+        _ticketDrafts.Clear();
+        ClearLapPhieu();
+        base.AcknowledgeDiscardedChanges();
+    }
 
     private void LoadPhieu()
     {
@@ -113,14 +193,33 @@ public class ucBaoHanh : PageBase
                 _lblInfo.Text = $"SP: {_currentSerial.TenSP}\nKhách: {_currentSerial.TenKH ?? "N/A"} ({_currentSerial.SDTKH ?? "N/A"})\nNgày mua: {_currentSerial.NgayBan:dd/MM/yyyy}\nKết quả: {kq.ThongBao}";
                 _lblInfo.ForeColor = kq.HopLe ? Theme.Success : Theme.Danger;
                 _btnLapPhieu.Enabled = kq.HopLe;
+                _gridSales.DataSource = _bll.LichSuBan(_currentSerial.Serial);
+                _gridWarrantyHistory.DataSource = _bll.LichSu(_currentSerial.Serial);
+                _leftTabs.SelectedTab = _historyTab;
             }
             else
             {
                 _lblInfo.Text = kq.ThongBao;
                 _lblInfo.ForeColor = Theme.Danger;
                 _btnLapPhieu.Enabled = false;
+                ClearHistory();
             }
         });
+    }
+
+    private void ClearLookupResult()
+    {
+        _currentSerial = null;
+        _lblInfo.Text = "";
+        _btnLapPhieu.Enabled = false;
+        ClearHistory();
+    }
+
+    private void ClearHistory()
+    {
+        _gridSales.DataSource = null;
+        _gridWarrantyHistory.DataSource = null;
+        _leftTabs.SelectedTab = _ticketsTab;
     }
 
     private void LapPhieu()
@@ -141,22 +240,43 @@ public class ucBaoHanh : PageBase
 
     private void ShowSelected()
     {
+        SaveCurrentDraft();
         _selectedPhieu = _grid.CurrentRow?.DataBoundItem as PhieuBaoHanhDTO;
         if (_selectedPhieu == null) { ClearCapNhat(); return; }
-        
-        _txtKetQua.Text = _selectedPhieu.KetQua ?? "";
-        _cboTrangThaiCapNhat.SelectedItem = _selectedPhieu.TrangThai;
-        
+
+        var draft = _ticketDrafts.GetValueOrDefault(_selectedPhieu.MaPBH);
+        var ketQua = draft?.KetQua ?? _selectedPhieu.KetQua ?? "";
+        var trangThai = draft?.TrangThai ?? _selectedPhieu.TrangThai;
         var isHandling = _selectedPhieu.TrangThai == TrangThaiBaoHanh.DangXuLy;
-        _txtKetQua.ReadOnly = !isHandling;
-        _cboTrangThaiCapNhat.Enabled = isHandling;
-        _btnCapNhat.Enabled = isHandling;
+        SetTrackedValues(() =>
+        {
+            _txtKetQua.Text = ketQua;
+            _cboTrangThaiCapNhat.SelectedItem = trangThai;
+            _txtKetQua.ReadOnly = !isHandling;
+            _cboTrangThaiCapNhat.Enabled = isHandling;
+            _btnCapNhat.Enabled = isHandling;
+        });
+    }
+
+    private void SaveCurrentDraft()
+    {
+        if (_selectedPhieu == null || !HasTrackedChanges) return;
+
+        var ketQua = _txtKetQua.Text;
+        var trangThai = _cboTrangThaiCapNhat.SelectedItem?.ToString() ?? _selectedPhieu.TrangThai;
+        if (ketQua == (_selectedPhieu.KetQua ?? "") && trangThai == _selectedPhieu.TrangThai)
+            _ticketDrafts.Remove(_selectedPhieu.MaPBH);
+        else
+            _ticketDrafts[_selectedPhieu.MaPBH] = new TicketDraft(ketQua, trangThai);
     }
 
     private void ClearCapNhat()
     {
-        _selectedPhieu = null; _txtKetQua.Clear(); _cboTrangThaiCapNhat.SelectedIndex = -1;
-        _txtKetQua.ReadOnly = true; _cboTrangThaiCapNhat.Enabled = false; _btnCapNhat.Enabled = false;
+        SetTrackedValues(() =>
+        {
+            _selectedPhieu = null; _txtKetQua.Clear(); _cboTrangThaiCapNhat.SelectedIndex = -1;
+            _txtKetQua.ReadOnly = true; _cboTrangThaiCapNhat.Enabled = false; _btnCapNhat.Enabled = false;
+        });
     }
 
     private void CapNhat()
@@ -164,8 +284,17 @@ public class ucBaoHanh : PageBase
         if (_selectedPhieu == null) return;
         var tt = _cboTrangThaiCapNhat.SelectedItem?.ToString();
         if (tt == null) return;
-        if (Msg.Run(() => _bll.CapNhatKetQua(_selectedPhieu, tt, _txtKetQua.Text)))
+        var maPBH = _selectedPhieu.MaPBH;
+        var update = new PhieuBaoHanhDTO
         {
+            MaPBH = maPBH,
+            Serial = _selectedPhieu.Serial,
+            TrangThai = _selectedPhieu.TrangThai
+        };
+        if (Msg.Run(() => _bll.CapNhatKetQua(update, tt, _txtKetQua.Text)))
+        {
+            _ticketDrafts.Remove(maPBH);
+            MarkTrackedChangesClean();
             Msg.Info("Đã cập nhật kết quả bảo hành.");
             LoadPhieu();
         }

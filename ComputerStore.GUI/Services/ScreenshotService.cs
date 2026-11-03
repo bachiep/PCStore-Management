@@ -11,13 +11,27 @@ public static class ScreenshotService
     public static int Run(string outputDir)
     {
         Directory.CreateDirectory(outputDir);
-        new TaiKhoanBLL().DangNhap("admin", "123456");
+        var screenshotRole = Environment.GetEnvironmentVariable("COMPUTERSTORE_SCREENSHOT_ROLE")?.Trim();
+        var username = screenshotRole?.ToLowerInvariant() switch
+        {
+            null or "" or "admin" => "admin",
+            "nhanvien" or "employee" => "nhanvien",
+            _ => throw new InvalidOperationException("COMPUTERSTORE_SCREENSHOT_ROLE chỉ nhận admin hoặc nhanvien.")
+        };
+        new TaiKhoanBLL().DangNhap(username, "123456");
 
         var screenArea = Screen.PrimaryScreen?.WorkingArea ?? new Rectangle(0, 0, 1920, 1080);
-        using var main = new frmMain { StartPosition = FormStartPosition.Manual, Location = screenArea.Location, Size = screenArea.Size, WindowState = FormWindowState.Maximized };
+        var captureSize = ParseCaptureSize(Environment.GetEnvironmentVariable("COMPUTERSTORE_SCREENSHOT_SIZE"));
+        using var main = new frmMain
+        {
+            StartPosition = FormStartPosition.Manual,
+            Location = screenArea.Location,
+            Size = captureSize ?? screenArea.Size,
+            WindowState = captureSize.HasValue ? FormWindowState.Normal : FormWindowState.Maximized
+        };
         main.Show();
         Pump(400);
-        foreach (var item in PageRegistry.Items)
+        foreach (var item in PageRegistry.Items.Where(item => !item.AdminOnly || Session.IsAdmin))
         {
             main.Navigate(item.Key);
             Pump(1200);
@@ -31,6 +45,33 @@ public static class ScreenshotService
             var path = Path.Combine(outputDir, item.Key + ".png");
             bmp.Save(path, ImageFormat.Png);
             Console.WriteLine("Saved " + path);
+
+            if (item.Key == "nhanvien" && Session.IsAdmin && main.ContentHost.Controls.Count > 0)
+            {
+                var accountTab = main.ContentHost.Controls.Find("tabsNhanVien", true).OfType<TabControl>().FirstOrDefault();
+                if (accountTab != null && accountTab.TabPages.Count > 1)
+                {
+                    accountTab.SelectedIndex = 1;
+                    Pump(300);
+                    SaveMainScreenshot(main, outputDir, "nhanvien_taikhoan.png");
+                    accountTab.SelectedIndex = 0;
+                }
+            }
+
+            if (item.Key == "banhang" && main.ContentHost.Controls.Count > 0)
+            {
+                var toggle = main.ContentHost.Controls[0].Controls.Find("btnToggleView", true).OfType<IButtonControl>().FirstOrDefault();
+                if (toggle != null)
+                {
+                    toggle.PerformClick();
+                    Pump(500);
+                    using var cardView = new Bitmap(main.Width, main.Height);
+                    main.DrawToBitmap(cardView, new Rectangle(0, 0, main.Width, main.Height));
+                    var cardsPath = Path.Combine(outputDir, "banhang_cards.png");
+                    cardView.Save(cardsPath, ImageFormat.Png);
+                    Console.WriteLine("Saved " + cardsPath);
+                }
+            }
         }
 
         // Chụp dialog Nhập Serial phục vụ kiểm tra
@@ -48,7 +89,50 @@ public static class ScreenshotService
             fSerial.Close();
         }
 
-        main.Close();
+        var inStockProduct = new SanPhamBLL().GetById(1);
+        if (inStockProduct != null && inStockProduct.SoLuongTon > 0)
+        {
+            using var fChooseSerial = new frmChonSerial(inStockProduct, 1)
+            {
+                ShowInTaskbar = false,
+                StartPosition = FormStartPosition.CenterParent
+            };
+            fChooseSerial.Show(main);
+            Pump(300);
+            SaveFormScreenshot(fChooseSerial, outputDir, "chon_serial_dialog.png");
+            fChooseSerial.Close();
+        }
+
+        var sampleInvoice = new HoaDonBLL()
+            .Search(DateTime.Today.AddYears(-2), DateTime.Today, string.Empty)
+            .FirstOrDefault();
+        if (sampleInvoice != null)
+        {
+            using var fInvoiceDetails = new frmChiTietHoaDon(sampleInvoice)
+            {
+                ShowInTaskbar = false,
+                StartPosition = FormStartPosition.CenterParent
+            };
+            fInvoiceDetails.Show(main);
+            Pump(300);
+            SaveFormScreenshot(fInvoiceDetails, outputDir, "hoadon_chitiet.png");
+            fInvoiceDetails.Close();
+
+            sampleInvoice.GhiChu = string.Join(" ", Enumerable.Repeat(
+                "Ghi chú dài để kiểm tra thanh cuộn trong chi tiết hóa đơn.", 8));
+            using var fLongNotes = new frmChiTietHoaDon(sampleInvoice)
+            {
+                ShowInTaskbar = false,
+                StartPosition = FormStartPosition.CenterParent
+            };
+            fLongNotes.Show(main);
+            Pump(300);
+            SaveFormScreenshot(fLongNotes, outputDir, "hoadon_chitiet_ghichu_dai.png");
+            fLongNotes.Close();
+        }
+
+        // This form holds deliberate demo drafts (for the POS screenshot). Dispose it
+        // directly so headless capture does not ask an interactive discard question.
         return 0;
     }
 
@@ -56,5 +140,27 @@ public static class ScreenshotService
     {
         var end = DateTime.Now.AddMilliseconds(ms);
         while (DateTime.Now < end) { Application.DoEvents(); Thread.Sleep(20); }
+    }
+
+    private static void SaveMainScreenshot(Form form, string outputDir, string fileName)
+        => SaveFormScreenshot(form, outputDir, fileName);
+
+    private static void SaveFormScreenshot(Form form, string outputDir, string fileName)
+    {
+        using var bmp = new Bitmap(form.Width, form.Height);
+        form.DrawToBitmap(bmp, new Rectangle(0, 0, form.Width, form.Height));
+        var path = Path.Combine(outputDir, fileName);
+        bmp.Save(path, ImageFormat.Png);
+        Console.WriteLine("Saved " + path);
+    }
+
+    private static Size? ParseCaptureSize(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        var parts = value.Split('x', 'X');
+        if (parts.Length != 2 || !int.TryParse(parts[0], out var width) || !int.TryParse(parts[1], out var height)
+            || width < 1100 || height < 680)
+            throw new ArgumentException("COMPUTERSTORE_SCREENSHOT_SIZE phải có dạng W×H, tối thiểu 1100×680.");
+        return new Size(width, height);
     }
 }

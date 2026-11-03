@@ -21,10 +21,12 @@ public class ucDashboard : PageBase
         _pnlCards.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         
         _gridSapHet.AutoGenerateColumns = false;
+        Theme.EmptyHint(_gridSapHet, "Không có sản phẩm nào sắp hết hàng.");
         _gridSapHet.Columns.AddRange(
             Theme.Col("TenSP", "Sản phẩm", weight: 2f),
-            Theme.Col("TenDM", "Danh mục", weight: 1f),
+            Theme.Col("TenDM", "Nhóm", weight: 1f),
             Theme.Col("SoLuongTon", "SL", weight: 0.5f, right: true));
+        _gridSapHet.RowTemplate.Height = 32;
         _gridSapHet.AllowUserToAddRows = false;
         _gridSapHet.ReadOnly = true;
 
@@ -43,9 +45,11 @@ public class ucDashboard : PageBase
         pnlGrid.Controls.Add(lblSapHet);
 
         _gridTop.AutoGenerateColumns = false;
+        Theme.EmptyHint(_gridTop, "Chưa có sản phẩm bán trong tháng này.");
         _gridTop.Columns.AddRange(
             Theme.Col("TenSP", "Sản phẩm", weight: 2.2f),
-            Theme.Col("SoLuongBan", "Đã bán", weight: 0.8f, right: true));
+            Theme.Col("SoLuongBan", "SL bán", weight: 0.8f, right: true));
+        _gridTop.RowTemplate.Height = 32;
         _gridTop.AllowUserToAddRows = false;
         _gridTop.ReadOnly = true;
 
@@ -66,12 +70,14 @@ public class ucDashboard : PageBase
 
         // --- 5 Recent Invoices Panel ---
         _gridRecent.AutoGenerateColumns = false;
+        Theme.EmptyHint(_gridRecent, "Chưa có hóa đơn bán hàng.");
         _gridRecent.Columns.AddRange(
             Theme.Col("MaHD", "Mã HĐ", weight: 0.5f),
             Theme.Col("TenKH", "Khách hàng", weight: 1.5f),
-            Theme.Col("NgayLap", "Giờ bán", weight: 1.1f, format: "dd/MM/yyyy HH:mm"),
+            Theme.Col("NgayLap", "Giờ bán", weight: 1.1f, format: "dd/MM/yy HH:mm"),
             Theme.Col("ThanhToan", "Tổng tiền", weight: 1.1f, format: "N0", right: true)
         );
+        _gridRecent.RowTemplate.Height = 32;
         _gridRecent.AllowUserToAddRows = false;
         _gridRecent.ReadOnly = true;
 
@@ -85,9 +91,9 @@ public class ucDashboard : PageBase
         pnlRecent.Controls.Add(lblRecent);
 
         var table = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3, RowCount = 2, Margin = new Padding(0) };
-        table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
-        table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25));
-        table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25));
+        table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 44));
+        table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 28));
+        table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 28));
         table.RowStyles.Add(new RowStyle(SizeType.Percent, 52));
         table.RowStyles.Add(new RowStyle(SizeType.Percent, 48));
 
@@ -158,6 +164,11 @@ public class ucDashboard : PageBase
                     txt.LabelFontColor = ScottPlot.Color.FromHex("#1E3A8A");
                 }
             }
+
+            // Reserve space above the tallest bar so its value label never
+            // touches or gets clipped by the plot frame.
+            var maxRevenue = values.Length == 0 ? 0 : values.Max();
+            _plot.Plot.Axes.SetLimitsY(0, maxRevenue > 0 ? maxRevenue * 1.2 : 1);
             
             var positions = data7Ngay.Select((x, i) => (double)i).ToArray();
             var labels = data7Ngay.Select(x => x.Nhan).ToArray();
@@ -170,6 +181,7 @@ public class ucDashboard : PageBase
             var dataDm = _bll.DoanhThuTheoDanhMuc();
             _plotDonut.Plot.Clear();
             _plotDonut.Plot.FigureBackground.Color = ScottPlot.Colors.White;
+            _plotDonut.Plot.Legend.IsVisible = false;
 
             if (dataDm.Count > 0)
             {
@@ -185,22 +197,29 @@ public class ucDashboard : PageBase
                     ScottPlot.Color.FromHex("#64748B")
                 };
 
+                var chartData = dataDm.OrderByDescending(x => x.DoanhThu)
+                    .Take(4)
+                    .Select(x => (x.TenDM, x.DoanhThu))
+                    .ToList();
+                var otherRevenue = dataDm.Sum(x => x.DoanhThu) - chartData.Sum(x => x.DoanhThu);
+                if (otherRevenue > 0) chartData.Add(("Khác", otherRevenue));
+
                 var slices = new List<ScottPlot.PieSlice>();
-                for (int i = 0; i < dataDm.Count; i++)
+                for (int i = 0; i < chartData.Count; i++)
                 {
-                    var item = dataDm[i];
+                    var item = chartData[i];
                     slices.Add(new ScottPlot.PieSlice
                     {
                         Value = (double)item.DoanhThu,
                         FillColor = palette[i % palette.Length],
-                        LegendText = $"{item.TenDM}: {item.TyLe:0.#}% ({item.DoanhThu:N0} ₫)"
+                        Label = item.TenDM,
+                        LegendText = $"{item.TenDM}: {item.DoanhThu:N0} ₫"
                     });
                 }
 
                 var pie = _plotDonut.Plot.Add.Pie(slices);
                 pie.DonutFraction = 0.55;
-                _plotDonut.Plot.ShowLegend(ScottPlot.Alignment.UpperRight);
-                _plotDonut.Plot.Title("Cơ cấu doanh thu theo Danh mục");
+                _plotDonut.Plot.Title("Cơ cấu doanh thu: 4 nhóm chính và nhóm khác");
                 _plotDonut.Plot.Axes.Frameless();
                 _plotDonut.Plot.HideGrid();
             }

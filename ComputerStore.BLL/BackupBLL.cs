@@ -30,6 +30,14 @@ public class BackupBLL
         catch (InvalidDataException ex) { throw new BusinessException(ex.Message); }
     }
 
+    public string? BackupSourceDatabase(string path)
+    {
+        Session.RequireAdmin();
+        if (!File.Exists(path)) throw new BusinessException("Không tìm thấy file sao lưu.");
+        try { return _dal.ReadSourceDatabase(path); }
+        catch (InvalidDataException ex) { throw new BusinessException(ex.Message); }
+    }
+
     public List<NhatKyDTO> NhatKy(int top = 300)
     {
         Session.RequireAdmin();

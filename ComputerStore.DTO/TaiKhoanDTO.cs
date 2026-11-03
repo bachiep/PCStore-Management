@@ -7,6 +7,7 @@ public class TaiKhoanDTO
     public int MaNV { get; set; }
     public string VaiTro { get; set; } = VaiTroConst.NhanVien;
     public bool TrangThai { get; set; } = true;
+    public bool NhanVienHoatDong { get; set; } = true;
     public string? HoTen { get; set; }
 }
 

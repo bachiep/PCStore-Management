@@ -24,8 +24,18 @@ public class frmChonSerial : Form
         pnlTop.Controls.Add(lbl);
 
         var btnLuu = Theme.PrimaryButton("Lưu", 80, (_, _) => Save());
+        var btnHuy = Theme.GhostButton("Hủy", 80, (_, _) => DialogResult = DialogResult.Cancel);
+        btnLuu.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        btnHuy.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         var pnlBot = new Panel { Height = 50, Dock = DockStyle.Bottom };
-        pnlBot.Controls.Add(btnLuu); btnLuu.Location = new Point(290, 10);
+        pnlBot.Controls.Add(btnHuy); pnlBot.Controls.Add(btnLuu);
+        pnlBot.Resize += (_, _) =>
+        {
+            btnLuu.Location = new Point(pnlBot.ClientSize.Width - btnLuu.Width - 14, 10);
+            btnHuy.Location = new Point(btnLuu.Left - btnHuy.Width - 8, 10);
+        };
+        AcceptButton = btnLuu;
+        CancelButton = btnHuy;
 
         var pnlFill = new Panel { Dock = DockStyle.Fill, Padding = new Padding(20, 10, 20, 10) };
         var card = Theme.CardPanel(new Padding(5));

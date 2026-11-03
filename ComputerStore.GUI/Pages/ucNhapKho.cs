@@ -23,6 +23,14 @@ public class ucNhapKho : PageBase
     private readonly Label _lblTongTien = new() { Font = Theme.H2, AutoSize = true, ForeColor = Theme.Accent, Margin = new Padding(0, 10, 0, 0) };
 
     private List<string> _tempSerials = new();
+    private ChiTietPhieuNhapDTO? _editingItem;
+    private readonly Components.ModernButton _btnSave;
+    private readonly Components.ModernButton _btnRemove;
+    private readonly Components.ModernButton _btnEdit;
+    private readonly Components.ModernButton _btnCancelEdit;
+    private bool _suppressDraftTracking;
+    private bool _entryDirty;
+    private bool _lookupsLoaded;
 
     public ucNhapKho() : base("Nhập kho")
     {
@@ -32,8 +40,17 @@ public class ucNhapKho : PageBase
         _cboSP.DisplayMember = "TenSP"; _cboSP.ValueMember = "MaSP";
 
         _txtDonGia.TextChanged += (_, _) => { if (decimal.TryParse(_txtDonGia.Text.Replace(".", ""), out var v)) _txtDonGia.Text = v.ToString("N0"); _txtDonGia.SelectionStart = _txtDonGia.Text.Length; };
-        _cboSP.SelectedIndexChanged += (_, _) => { if (_cboSP.SelectedItem is SanPhamDTO sp && sp.GiaNhap > 0) _txtDonGia.Text = sp.GiaNhap.ToString("N0"); };
+        _cboSP.SelectedIndexChanged += (_, _) =>
+        {
+            if (_cboSP.SelectedItem is not SanPhamDTO sp) return;
+            if (_editingItem != null && sp.MaSP != _editingItem.MaSP) _tempSerials.Clear();
+            if (sp.GiaNhap > 0) _txtDonGia.Text = sp.GiaNhap.ToString("N0");
+        };
         _txtSoLuong.Text = "1";
+        _txtSoLuong.TextChanged += (_, _) => { if (!_suppressDraftTracking) _entryDirty = true; };
+        _txtDonGia.TextChanged += (_, _) => { if (!_suppressDraftTracking) _entryDirty = true; };
+        _cboNCC.SelectedIndexChanged += (_, _) => { if (!_suppressDraftTracking) _entryDirty = true; };
+        _cboSP.SelectedIndexChanged += (_, _) => { if (!_suppressDraftTracking) _entryDirty = true; };
         Theme.EmptyHint(_grid, "Phiếu nhập đang trống — chọn sản phẩm bên phải rồi bấm “Thêm vào phiếu”");
 
         _grid.AutoGenerateColumns = false;
@@ -221,7 +238,7 @@ public class ucNhapKho : PageBase
         };
         var lblNote = new Label
         {
-            Text = "💡 Mỗi sản phẩm nhập kho bắt buộc có số serial riêng tương ứng với số lượng để theo dõi bảo hành.",
+            Text = "Lưu ý: mỗi thiết bị cần một serial riêng.",
             Font = new Font("Segoe UI", 8.5f),
             ForeColor = ColorTranslator.FromHtml("#64748B"),
             Dock = DockStyle.Fill,
@@ -250,25 +267,34 @@ public class ucNhapKho : PageBase
         // ====================================================
         // PANEL BÊN DƯỚI: NÚT THAO TÁC & TỔNG TIỀN PHIẾU
         // ====================================================
-        var btnRemove = Theme.DangerButton("Xóa dòng đang chọn", 160, (_, _) => RemoveItem());
-        var btnSave = Theme.PrimaryButton("LƯU PHIẾU NHẬP", 180, (_, _) => Save());
-        var btnLichSu = Theme.GhostButton("Lịch sử nhập kho", 150, (_, _) => { using var f = new frmLichSuNhap(); f.ShowDialog(this); });
+        _btnRemove = Theme.DangerButton("Xóa dòng", 88, (_, _) => RemoveItem());
+        _btnEdit = Theme.GhostButton("Sửa dòng", 88, (_, _) => EditItem());
+        _btnCancelEdit = Theme.GhostButton("Hủy sửa", 78, (_, _) => CancelEdit());
+        _btnSave = Theme.PrimaryButton("Lưu phiếu", 120, (_, _) => Save());
+        var btnLichSu = Theme.GhostButton("Lịch sử", 92, (_, _) => { using var f = new frmLichSuNhap(); f.ShowDialog(this); });
+        _grid.SelectionChanged += (_, _) => UpdateActionState();
 
         var pnlLeftBot = new FlowLayoutPanel
         {
-            Height = 52,
             Dock = DockStyle.Bottom,
             FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = true,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
             Padding = new Padding(0, 8, 0, 0),
             BackColor = Color.Transparent
         };
-        btnSave.Margin = new Padding(0, 0, 12, 0);
-        btnRemove.Margin = new Padding(0, 0, 12, 0);
-        _lblTongTien.Margin = new Padding(0, 6, 16, 0);
+        _btnSave.Margin = new Padding(0, 0, 8, 0);
+        _btnRemove.Margin = new Padding(0, 0, 8, 0);
+        _btnEdit.Margin = new Padding(0, 0, 8, 0);
+        _btnCancelEdit.Margin = new Padding(0, 0, 8, 0);
+        _lblTongTien.Margin = new Padding(0, 6, 8, 0);
         btnLichSu.Margin = new Padding(0);
 
-        pnlLeftBot.Controls.Add(btnSave);
-        pnlLeftBot.Controls.Add(btnRemove);
+        pnlLeftBot.Controls.Add(_btnSave);
+        pnlLeftBot.Controls.Add(_btnRemove);
+        pnlLeftBot.Controls.Add(_btnEdit);
+        pnlLeftBot.Controls.Add(_btnCancelEdit);
         pnlLeftBot.Controls.Add(_lblTongTien);
         pnlLeftBot.Controls.Add(btnLichSu);
 
@@ -280,12 +306,34 @@ public class ucNhapKho : PageBase
         UpdateTongTien();
     }
 
+    public override bool HasUnsavedChanges => _items.Count > 0 || _tempSerials.Count > 0 || _editingItem != null
+        || _entryDirty || !string.IsNullOrWhiteSpace(_txtGhiChu.Text);
+
     public override void LoadData()
     {
+        var selectedSupplier = _lookupsLoaded ? _cboNCC.SelectedValue : null;
+        var selectedProduct = _lookupsLoaded ? _cboSP.SelectedValue : null;
+        var quantity = _txtSoLuong.Text;
+        var unitPrice = _txtDonGia.Text;
+        var preserveEntry = _lookupsLoaded;
+
         Msg.Run(() =>
         {
-            _cboNCC.DataSource = _nccBll.Search("");
-            _cboSP.DataSource = _spBll.Search("");
+            _suppressDraftTracking = true;
+            try
+            {
+                _cboNCC.DataSource = _nccBll.Search("");
+                _cboSP.DataSource = _spBll.Search("");
+                if (selectedSupplier != null) _cboNCC.SelectedValue = selectedSupplier;
+                if (selectedProduct != null) _cboSP.SelectedValue = selectedProduct;
+                if (preserveEntry)
+                {
+                    _txtSoLuong.Text = quantity;
+                    _txtDonGia.Text = unitPrice;
+                }
+            }
+            finally { _suppressDraftTracking = false; }
+            _lookupsLoaded = true;
         });
     }
 
@@ -309,16 +357,22 @@ public class ucNhapKho : PageBase
         if (string.IsNullOrWhiteSpace(ten)) return;
         var giaNhap = InputDialog.Ask(this, "Thêm sản phẩm mới", "Giá nhập (₫):") ?? "0";
         var giaBan = InputDialog.Ask(this, "Thêm sản phẩm mới", "Giá bán (₫):") ?? "0";
+        var warrantyText = InputDialog.Ask(this, "Thêm sản phẩm mới", "Thời hạn bảo hành (tháng, 0-120):");
+        if (warrantyText == null) return;
 
         Msg.Run(() =>
         {
             var gn = ParseMoney(giaNhap == "" ? "0" : giaNhap, "Giá nhập");
             var gb = ParseMoney(giaBan == "" ? "0" : giaBan, "Giá bán");
-            var idDM = new DanhMucBLL().GetAll().FirstOrDefault()?.MaDM ?? 0;
-            var idHang = new HangBLL().GetAll().FirstOrDefault()?.MaHang ?? 0;
-            if (idDM == 0 || idHang == 0) throw new BusinessException("Chưa có danh mục hoặc hãng nào. Hãy thêm ở màn hình Danh mục & Hãng trước.");
+            if (!int.TryParse(warrantyText, out var warranty) || warranty < 0 || warranty > 120)
+                throw new BusinessException("Thời hạn bảo hành phải từ 0 đến 120 tháng.");
+            var danhMuc = new DanhMucBLL().GetAll();
+            var hang = new HangBLL().GetAll();
+            var idDM = SelectReference("Chọn danh mục", danhMuc, d => d.TenDM, d => d.MaDM);
+            var idHang = SelectReference("Chọn hãng", hang, h => h.TenHang, h => h.MaHang);
+            if (idDM == null || idHang == null) return;
 
-            var sp = new SanPhamDTO { TenSP = ten, GiaNhap = gn, GiaBan = gb, ThoiGianBH = 12, MaDM = idDM, MaHang = idHang, TrangThai = true };
+            var sp = new SanPhamDTO { TenSP = ten, GiaNhap = gn, GiaBan = gb, ThoiGianBH = warranty, MaDM = idDM.Value, MaHang = idHang.Value, TrangThai = true };
             _spBll.Save(sp);
             LoadData();
             for (var i = 0; i < _cboSP.Items.Count; i++)
@@ -327,13 +381,31 @@ public class ucNhapKho : PageBase
         });
     }
 
+    private int? SelectReference<T>(string title, List<T> values, Func<T, string> display, Func<T, int> key)
+    {
+        if (values.Count == 0) throw new BusinessException($"Chưa có dữ liệu để {title.ToLowerInvariant()}. Hãy thêm trước ở màn hình Danh mục & Hãng.");
+        using var dialog = new Form
+        {
+            Text = title, Width = 360, Height = 150, StartPosition = FormStartPosition.CenterParent,
+            FormBorderStyle = FormBorderStyle.FixedDialog, MinimizeBox = false, MaximizeBox = false
+        };
+        var combo = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Left = 16, Top = 14, Width = 312, DisplayMember = "Text", ValueMember = "Value" };
+        combo.DataSource = values.Select(value => new { Text = display(value), Value = key(value) }).ToList();
+        var ok = new Button { Text = "Chọn", DialogResult = DialogResult.OK, Left = 168, Top = 58, Width = 76 };
+        var cancel = new Button { Text = "Hủy", DialogResult = DialogResult.Cancel, Left = 252, Top = 58, Width = 76 };
+        dialog.Controls.AddRange(new Control[] { combo, ok, cancel });
+        dialog.AcceptButton = ok;
+        dialog.CancelButton = cancel;
+        return dialog.ShowDialog(this) == DialogResult.OK ? (int?)combo.SelectedValue : null;
+    }
+
 
 
     private void AddItem()
     {
         if (_cboSP.SelectedItem is not SanPhamDTO sp) { Msg.Warn("Hãy chọn sản phẩm."); return; }
         if (!int.TryParse(_txtSoLuong.Text, out var sl) || sl <= 0) { Msg.Warn("Số lượng hợp lệ > 0."); return; }
-        if (_items.Any(i => i.MaSP == sp.MaSP)) { Msg.Warn("Sản phẩm này đã có trong phiếu. Hãy xóa dòng cũ rồi thêm lại nếu muốn đổi."); return; }
+        if (_items.Any(i => i.MaSP == sp.MaSP && !ReferenceEquals(i, _editingItem))) { Msg.Warn("Sản phẩm này đã có trong phiếu. Hãy sửa dòng hiện tại."); return; }
         if (!decimal.TryParse(_txtDonGia.Text.Replace(".", ""), out var dgCheck) || dgCheck <= 0) { Msg.Warn("Hãy nhập đơn giá nhập lớn hơn 0."); return; }
         using (var f = new frmNhapSerial(sp, sl, _tempSerials))
         {
@@ -345,9 +417,17 @@ public class ucNhapKho : PageBase
         try
         {
             var dg = ParseMoney(_txtDonGia.Text == "" ? "0" : _txtDonGia.Text, "Đơn giá");
-            _items.Add(new ChiTietPhieuNhapDTO { MaSP = sp.MaSP, TenSP = sp.TenSP, SoLuong = sl, DonGia = dg, Serials = _tempSerials.ToList() });
+            var updated = new ChiTietPhieuNhapDTO { MaSP = sp.MaSP, TenSP = sp.TenSP, SoLuong = sl, DonGia = dg, Serials = _tempSerials.ToList() };
+            if (_editingItem != null)
+            {
+                var index = _items.IndexOf(_editingItem);
+                if (index >= 0) _items[index] = updated;
+                _editingItem = null;
+                _btnCancelEdit.Enabled = false;
+            }
+            else _items.Add(updated);
             _tempSerials.Clear();
-            _txtSoLuong.Text = "1"; _txtDonGia.Clear();
+            ResetEntryFields();
             UpdateTongTien();
         }
         catch (Exception ex) { Msg.Warn(ex.Message); }
@@ -355,16 +435,69 @@ public class ucNhapKho : PageBase
 
     private void RemoveItem()
     {
-        if (_grid.CurrentRow?.DataBoundItem is ChiTietPhieuNhapDTO i) { _items.Remove(i); UpdateTongTien(); }
+        if (_grid.CurrentRow?.DataBoundItem is ChiTietPhieuNhapDTO i)
+        {
+            if (ReferenceEquals(i, _editingItem)) CancelEdit();
+            _items.Remove(i); UpdateTongTien();
+        }
+    }
+
+    private void EditItem()
+    {
+        if (_grid.CurrentRow?.DataBoundItem is not ChiTietPhieuNhapDTO item) { Msg.Warn("Hãy chọn dòng cần sửa."); return; }
+        _editingItem = item;
+        _cboSP.SelectedValue = item.MaSP;
+        _txtSoLuong.Text = item.SoLuong.ToString();
+        _txtDonGia.Text = item.DonGia.ToString("N0", Theme.Vi);
+        _tempSerials = item.Serials.ToList();
+        UpdateActionState();
+    }
+
+    private void CancelEdit()
+    {
+        _editingItem = null;
+        _tempSerials.Clear();
+        ResetEntryFields();
+        UpdateActionState();
+    }
+
+    private void ResetEntryFields()
+    {
+        _suppressDraftTracking = true;
+        try
+        {
+            _txtSoLuong.Text = "1";
+            _txtDonGia.Clear();
+        }
+        finally
+        {
+            _suppressDraftTracking = false;
+            _entryDirty = false;
+        }
     }
 
     private void UpdateTongTien()
     {
-        _lblTongTien.Text = $"Tổng: {PhieuNhapBLL.TinhTongTien(_items):N0} ₫";
+        _lblTongTien.Text = $"Tổng tiền: {PhieuNhapBLL.TinhTongTien(_items):N0} ₫";
+        UpdateActionState();
+    }
+
+    private void UpdateActionState()
+    {
+        var hasSelectedLine = _grid.CurrentRow?.DataBoundItem is ChiTietPhieuNhapDTO;
+        _btnEdit.Enabled = hasSelectedLine && _editingItem == null;
+        _btnRemove.Enabled = hasSelectedLine && _editingItem == null;
+        _btnCancelEdit.Enabled = _editingItem != null;
+        _btnSave.Enabled = _items.Count > 0 && _editingItem == null;
     }
 
     private void Save()
     {
+        if (_editingItem != null)
+        {
+            Msg.Warn("Dòng nhập đang được sửa nhưng chưa xác nhận. Hãy bấm “Thêm vào phiếu” để lưu thay đổi vào danh sách, hoặc “Hủy sửa”.");
+            return;
+        }
         if (Msg.Run(() => _bll.LapPhieuNhap(new PhieuNhapDTO
         {
             MaNCC = _cboNCC.SelectedValue is int n ? n : 0, GhiChu = _txtGhiChu.Text
@@ -372,6 +505,7 @@ public class ucNhapKho : PageBase
         {
             Msg.Info("Đã lập phiếu nhập thành công.");
             _items.Clear(); _txtGhiChu.Clear(); _tempSerials.Clear(); UpdateTongTien();
+            ResetEntryFields();
         }
     }
 }
