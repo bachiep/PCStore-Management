@@ -3,6 +3,7 @@ using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
 using ComputerStore.DTO;
 using ComputerStore.BLL;
+using Microsoft.Extensions.Configuration;
 
 namespace ComputerStore.GUI.Services;
 
@@ -40,21 +41,39 @@ public static class PdfExporter
 
     private static void ComposeHeader(IContainer container, HoaDonDTO hd)
     {
+        var store = LoadStoreProfile();
         container.Row(row =>
         {
             row.RelativeItem().Column(column =>
             {
-                column.Item().Text("PC STORE").FontSize(22).SemiBold().FontColor(Colors.Blue.Darken2);
-                column.Item().Text("ĐC: 123 Đường ABC, Hà Nội").FontColor(Colors.Grey.Darken2);
-                column.Item().Text("SĐT: 0123 456 789").FontColor(Colors.Grey.Darken2);
+                column.Item().Text(store.Name).FontSize(22).SemiBold().FontColor(Colors.Blue.Darken2);
+                if (!string.IsNullOrWhiteSpace(store.Address))
+                    column.Item().Text($"Địa chỉ: {store.Address}").FontColor(Colors.Grey.Darken2);
+                if (!string.IsNullOrWhiteSpace(store.Phone))
+                    column.Item().Text($"SĐT: {store.Phone}").FontColor(Colors.Grey.Darken2);
             });
-            row.ConstantItem(140).AlignRight().Column(c =>
+            row.ConstantItem(180).AlignRight().Column(c =>
             {
-                c.Item().Text($"HÓA ĐƠN BÁN HÀNG").FontSize(14).SemiBold();
+                c.Item().Text(hd.DaHuy ? "HÓA ĐƠN ĐÃ HỦY" : "HÓA ĐƠN BÁN HÀNG")
+                    .FontSize(12).SemiBold().FontColor(hd.DaHuy ? Colors.Red.Darken2 : Colors.Black);
                 c.Item().Text($"Mã hóa đơn: #{hd.MaHD}");
                 c.Item().Text($"Ngày: {hd.NgayLap:dd/MM/yyyy HH:mm}");
+                if (hd.DaHuy && hd.NgayHuy.HasValue)
+                    c.Item().Text($"Ngày hủy: {hd.NgayHuy:dd/MM/yyyy HH:mm}").FontColor(Colors.Red.Darken2);
             });
         });
+    }
+
+    private static (string Name, string? Address, string? Phone) LoadStoreProfile()
+    {
+        var configuration = new ConfigurationBuilder()
+            .SetBasePath(AppContext.BaseDirectory)
+            .AddJsonFile("appsettings.json", optional: true)
+            .Build();
+        return (
+            string.IsNullOrWhiteSpace(configuration["Store:Name"]) ? "PC STORE" : configuration["Store:Name"]!,
+            configuration["Store:Address"],
+            configuration["Store:Phone"]);
     }
 
     private static void ComposeContent(IContainer container, List<ChiTietHoaDonDTO> items, HoaDonDTO hd)
@@ -62,6 +81,17 @@ public static class PdfExporter
         container.PaddingVertical(1, Unit.Centimetre).Column(column =>
         {
             column.Spacing(10);
+
+            if (hd.DaHuy)
+            {
+                column.Item().Background(Colors.Red.Lighten5).Border(1).BorderColor(Colors.Red.Lighten2).Padding(8).Column(c =>
+                {
+                    c.Item().Text("CHỨNG TỪ ĐÃ HỦY — KHÔNG CÒN HIỆU LỰC THANH TOÁN")
+                        .SemiBold().FontColor(Colors.Red.Darken2);
+                    if (!string.IsNullOrWhiteSpace(hd.LyDoHuy))
+                        c.Item().Text($"Lý do: {hd.LyDoHuy}").FontColor(Colors.Red.Darken2);
+                });
+            }
             
             // Thông tin khách hàng & nhân viên
             column.Item().Background(Colors.Grey.Lighten4).Padding(10).Row(r =>
@@ -126,15 +156,18 @@ public static class PdfExporter
             // Tổng kết
             column.Item().PaddingTop(10).Row(r =>
             {
-                r.RelativeItem().AlignBottom().Text("Cảm ơn quý khách đã mua sắm tại PC Store!").FontColor(Colors.Grey.Medium).Italic();
+                r.RelativeItem().AlignBottom().Text(hd.DaHuy
+                    ? "Bản in tham khảo của giao dịch đã bị hủy."
+                    : "Cảm ơn quý khách đã mua sắm tại PC Store!").FontColor(Colors.Grey.Medium).Italic();
                 r.ConstantItem(180).Column(c =>
                 {
                     c.Item().Row(r2 => { r2.RelativeItem().Text("Tổng tiền:"); r2.RelativeItem().AlignRight().Text($"{hd.TongTien:N0} ₫"); });
                     c.Item().Row(r2 => { r2.RelativeItem().Text("Giảm giá:"); r2.RelativeItem().AlignRight().Text($"-{hd.GiamGia:N0} ₫"); });
                     c.Item().PaddingTop(5).BorderTop(1).BorderColor(Colors.Grey.Lighten2).PaddingTop(5).Row(r2 => 
                     { 
-                        r2.RelativeItem().Text("Thanh toán:").SemiBold().FontSize(12); 
-                        r2.RelativeItem().AlignRight().Text($"{hd.ThanhToan:N0} ₫").SemiBold().FontSize(12).FontColor(Colors.Blue.Darken2); 
+                        r2.RelativeItem().Text(hd.DaHuy ? "Giá trị đã hủy:" : "Thanh toán:").SemiBold().FontSize(12);
+                        r2.RelativeItem().AlignRight().Text($"{hd.ThanhToan:N0} ₫").SemiBold().FontSize(12)
+                            .FontColor(hd.DaHuy ? Colors.Red.Darken2 : Colors.Blue.Darken2);
                     });
                 });
             });

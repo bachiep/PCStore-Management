@@ -138,10 +138,19 @@ public class TaiKhoanBLL
         if (_dal.Exists(username)) throw new BusinessException("Tên đăng nhập đã tồn tại.");
         if (_dal.ExistsForEmployee(maNV)) throw new BusinessException("Nhân viên này đã có tài khoản.");
 
-        _dal.Insert(new TaiKhoanDTO
+        try
         {
-            TenDangNhap = username, MatKhauHash = PasswordHasher.Hash(password), MaNV = maNV, VaiTro = vaiTro, TrangThai = true
-        });
+            _dal.Insert(new TaiKhoanDTO
+            {
+                TenDangNhap = username, MatKhauHash = PasswordHasher.Hash(password), MaNV = maNV, VaiTro = vaiTro, TrangThai = true
+            });
+        }
+        catch (InvalidOperationException ex)
+        {
+            // The DAL rechecks employee/account state inside the transaction to close
+            // the race with employee deactivation; surface that conflict as a business error.
+            throw new BusinessException(ex.Message);
+        }
     }
 
     public void CapNhatQuyen(string username, string vaiTro, bool hoatDong)

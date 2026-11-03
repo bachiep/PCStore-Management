@@ -34,9 +34,28 @@ public class TaiKhoanDAL
         => Convert.ToInt32(ExecuteScalar("SELECT COUNT(*) FROM TaiKhoan WHERE MaNV=@id", P("@id", maNV))) > 0;
 
     public void Insert(TaiKhoanDTO tk)
-        => ExecuteNonQuery(@"INSERT TaiKhoan(TenDangNhap, MatKhauHash, MaNV, VaiTro, TrangThai)
-                             VALUES(@u, @h, @nv, @vt, @tt)",
-            P("@u", tk.TenDangNhap), P("@h", tk.MatKhauHash), P("@nv", tk.MaNV), P("@vt", tk.VaiTro), P("@tt", tk.TrangThai));
+        => InTransactionWithNamedLock(AdminInvariantLockName, (conn, tran) =>
+        {
+            // Match DeactivateEmployee's lock order: acquire the shared invariant lock,
+            // then lock and recheck the employee before inserting an active account.
+            var employeeStatus = ExecuteScalar(conn, tran,
+                "SELECT TrangThai FROM NhanVien WHERE MaNV=@nv FOR UPDATE", P("@nv", tk.MaNV));
+            if (employeeStatus == null || !Convert.ToBoolean(employeeStatus))
+                throw new InvalidOperationException("Không thể tạo tài khoản cho nhân viên đã nghỉ việc.");
+
+            if (Convert.ToInt32(ExecuteScalar(conn, tran,
+                    "SELECT COUNT(*) FROM TaiKhoan WHERE TenDangNhap=@u", P("@u", tk.TenDangNhap))) > 0)
+                throw new InvalidOperationException("Tên đăng nhập đã tồn tại.");
+            if (Convert.ToInt32(ExecuteScalar(conn, tran,
+                    "SELECT COUNT(*) FROM TaiKhoan WHERE MaNV=@nv", P("@nv", tk.MaNV))) > 0)
+                throw new InvalidOperationException("Nhân viên này đã có tài khoản.");
+
+            ExecuteNonQuery(conn, tran,
+                @"INSERT TaiKhoan(TenDangNhap, MatKhauHash, MaNV, VaiTro, TrangThai)
+                  VALUES(@u, @h, @nv, @vt, @tt)",
+                P("@u", tk.TenDangNhap), P("@h", tk.MatKhauHash), P("@nv", tk.MaNV), P("@vt", tk.VaiTro), P("@tt", tk.TrangThai));
+            return 0;
+        });
 
     public void UpdatePassword(string username, string hash)
         => ExecuteNonQuery("UPDATE TaiKhoan SET MatKhauHash=@h WHERE TenDangNhap=@u", P("@h", hash), P("@u", username));

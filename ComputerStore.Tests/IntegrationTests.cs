@@ -107,6 +107,67 @@ public class IntegrationTests
     }
 
     [Fact]
+    public async Task ConcurrentAccountCreationAndEmployeeDeactivation_KeepAccountInactive()
+    {
+        if (!DbUp()) return;
+        LoginAdmin();
+        var employeeBll = new NhanVienBLL();
+        var accountBll = new TaiKhoanBLL();
+        var employeeId = employeeBll.Save(new NhanVienDTO
+        {
+            HoTen = "Account deactivate race " + Tag, ChucVu = "Nhân viên", TrangThai = true
+        });
+        var username = "race" + Tag;
+
+        try
+        {
+            using var barrier = new Barrier(2);
+            void StartTogether()
+            {
+                if (!barrier.SignalAndWait(TimeSpan.FromSeconds(10)))
+                    throw new TimeoutException("Các thao tác tạo tài khoản và cho nghỉ việc không đồng thời bắt đầu được.");
+            }
+
+            var createTask = Task.Run(() =>
+            {
+                StartTogether();
+                try
+                {
+                    accountBll.TaoTaiKhoan(employeeId, username, "abc123", VaiTroConst.NhanVien);
+                    return true;
+                }
+                catch (BusinessException)
+                {
+                    return false;
+                }
+            });
+            var deactivateTask = Task.Run(() =>
+            {
+                StartTogether();
+                return new TaiKhoanDAL().DeactivateEmployee(new NhanVienDTO
+                {
+                    MaNV = employeeId, HoTen = "Account deactivate race " + Tag,
+                    ChucVu = "Nhân viên", TrangThai = false
+                });
+            });
+
+            var outcomes = await Task.WhenAll(createTask, deactivateTask);
+            Assert.True(outcomes[1]);
+            Assert.False(Convert.ToBoolean(DbHelper.ExecuteScalar(
+                "SELECT TrangThai FROM NhanVien WHERE MaNV=@id", DbHelper.P("@id", employeeId))));
+
+            var account = new TaiKhoanDAL().GetByUsername(username);
+            Assert.True(account == null || !account.TrangThai);
+        }
+        finally
+        {
+            LoginAdmin();
+            employeeBll.Delete(employeeId);
+            Session.End();
+        }
+    }
+
+    [Fact]
     public void DatabaseBootstrapper_RecreatesOnlyAMissingDatabase()
     {
         if (!DbUp()) return;

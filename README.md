@@ -91,7 +91,19 @@ ComputerStore.sln
 Nút Retry có thể khởi động máy chủ demo riêng nếu tìm thấy MySQL Server 8 trong thư mục cài chuẩn hoặc `PATH`. Với XAMPP/MariaDB, hãy khởi động dịch vụ của bộ đó trước rồi cấu hình chuỗi kết nối; script tự khởi động chỉ nhận MySQL Server 8 đã xác minh phiên bản.
 
 ### 2. Thiết lập Cơ sở dữ liệu
-**Cài mới:** chạy `01_CreateDatabase.sql`, `02_StoredProcedures.sql`, `03_SeedData.sql`, rồi `06_SeedDemoHistory.sql`. Khi ứng dụng tự dựng database bị thiếu, nó chạy cả bốn script này trên schema trong chuỗi kết nối. Script 06 không tự chọn schema; khi chạy thủ công bằng MySQL CLI, truyền đúng tên database bằng `--database`, ví dụ `mysql -h 127.0.0.1 -P 3307 -u root -p --database QLCuaHangLinhKien < Database/06_SeedDemoHistory.sql`. Dữ liệu cơ sở có 60 hóa đơn demo; script 06 bổ sung 72 hóa đơn trải đều 12 tháng gần nhất, có nhiều ngày trong tháng, khách hàng và hình thức thanh toán. Script 06 cập nhật tồn kho/serial trong một transaction và có thể chạy lại mà không tạo hóa đơn trùng.
+**Cài mới — chọn một trong hai cách:**
+
+- **Để ứng dụng tự tạo CSDL (hỗ trợ tên database tùy chọn):** cấu hình `COMPUTERSTORE_CONNECTION` với tên database mong muốn, rồi chạy ứng dụng. Nếu database chưa tồn tại, bootstrapper tạo schema đó và nạp lần lượt `01_CreateDatabase.sql`, `02_StoredProcedures.sql`, `03_SeedData.sql`, `06_SeedDemoHistory.sql` vào đúng schema trong chuỗi kết nối. Mặc định, tự khởi tạo chỉ được phép trên MySQL cục bộ/loopback.
+- **Chạy SQL thủ công:** chỉ dùng cách này cho database demo mới, trống, có tên chính xác `QLCuaHangLinhKien`. Scripts 01, 02 và 03 chứa `CREATE DATABASE`/`USE QLCuaHangLinhKien`; script 06 không chọn schema. Vì vậy, không đổi tên schema cho cách này và không chạy các lệnh dưới đây trên database chứa dữ liệu cần giữ. Trong Bash hoặc Git Bash, chạy đúng thứ tự:
+
+```bash
+mysql -h 127.0.0.1 -P 3307 -u root -p < Database/01_CreateDatabase.sql
+mysql -h 127.0.0.1 -P 3307 -u root -p --database QLCuaHangLinhKien < Database/02_StoredProcedures.sql
+mysql -h 127.0.0.1 -P 3307 -u root -p --database QLCuaHangLinhKien < Database/03_SeedData.sql
+mysql -h 127.0.0.1 -P 3307 -u root -p --database QLCuaHangLinhKien < Database/06_SeedDemoHistory.sql
+```
+
+Dữ liệu cơ sở có 60 hóa đơn demo; script 06 bổ sung 72 hóa đơn trải đều 12 tháng gần nhất, có nhiều ngày trong tháng, khách hàng và hình thức thanh toán. Script 06 cập nhật tồn kho/serial trong một transaction và có thể chạy lại mà không tạo hóa đơn trùng.
 
 **Nâng cấp database cũ đang có dữ liệu:** sao lưu database trước, rồi chạy lần lượt migration `04_Migration_HoaDon.sql`, `05_Migration_LichSuBanSerial.sql`, `07_Migration_NetRevenue.sql` trên đúng schema mà ứng dụng đang dùng. Các migration không tự chọn schema; phải chỉ rõ database đích khi kết nối (hoặc chọn đúng schema trong công cụ quản trị), nếu không chúng có thể chạy nhầm database. Ví dụ với MySQL CLI trên Bash, thay `QLCuaHangLinhKien` bằng giá trị `Database` trong chuỗi kết nối của ứng dụng:
 
@@ -119,10 +131,16 @@ Mở file `ComputerStore.GUI/appsettings.json` và điều chỉnh thông số t
 {
   "ConnectionStrings": {
     "Default": "Server=127.0.0.1;Port=3307;Database=QLCuaHangLinhKien;User ID=root;Password=;CharSet=utf8mb4;AllowUserVariables=True;ConnectionTimeout=10"
+  },
+  "Store": {
+    "Name": "PC STORE",
+    "Address": "",
+    "Phone": ""
   }
 }
 ```
 *(Bạn cũng có thể cấu hình thông qua biến môi trường hệ thống `COMPUTERSTORE_CONNECTION`)*.
+Các trường `Store.Name`, `Store.Address`, `Store.Phone` chỉ dùng để in thông tin cửa hàng trên hóa đơn PDF. Mặc định tên là `PC STORE`, địa chỉ và số điện thoại để trống để tránh đưa thông tin giả lên hóa đơn; bản demo không yêu cầu bạn nhập thông tin thật.
 *Cấu hình `root` không mật khẩu chỉ dành cho MySQL cục bộ dùng demo trên `127.0.0.1:3307`; không dùng cấu hình này cho máy chủ dùng chung hoặc môi trường vận hành. Script MySQL mẫu chỉ bind vào loopback. Nếu triển khai nơi khác, hãy tạo tài khoản MySQL riêng có quyền tối thiểu và đặt mật khẩu bằng biến môi trường/cấu hình cục bộ không đưa lên Git.*
 
 ### 4. Build và Chạy ứng dụng

@@ -54,19 +54,35 @@ public class ucThongKe : PageBase
         _cboNam.SelectedIndexChanged += (_, _) => LoadData();
 
         _gridTop.AutoGenerateColumns = false;
-        _gridTop.Columns.AddRange(
-            Theme.Col("TenSP", "Sản phẩm", weight: 4.2f),
-            Theme.Col("SoLuongBan", "Đã bán", weight: 0.8f, center: true),
-            Theme.Col("DoanhThu", "Doanh thu thuần", weight: 1.2f, format: "N0", right: true)
-        );
+        var topProductColumn = Theme.Col("TenSP", "Sản phẩm", weight: 4.2f);
+        var topCountColumn = Theme.Col("SoLuongBan", "SL bán", weight: 0.8f, center: true);
+        var topRevenueColumn = Theme.Col("DoanhThu", "Doanh thu", weight: 1.2f, format: "N0", right: true);
+        topProductColumn.MinimumWidth = 190;
+        topProductColumn.DefaultCellStyle.WrapMode = DataGridViewTriState.True;
+        topCountColumn.MinimumWidth = 64;
+        topRevenueColumn.MinimumWidth = 120;
+        _gridTop.Columns.AddRange(topProductColumn, topCountColumn, topRevenueColumn);
+        _gridTop.RowTemplate.Height = 38;
+        _gridTop.AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.AllCells;
+        _gridTop.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
+        _gridTop.ColumnHeadersDefaultCellStyle.WrapMode = DataGridViewTriState.True;
+        _gridTop.CellToolTipTextNeeded += (_, e) =>
+        {
+            if (e.RowIndex >= 0 && e.ColumnIndex >= 0 && _gridTop.Rows[e.RowIndex].DataBoundItem is TopSanPhamDTO item)
+                e.ToolTipText = item.TenSP;
+        };
 
         _gridDoanhThu.AutoGenerateColumns = false;
-        _gridDoanhThu.Columns.AddRange(
-            Theme.Col("Nhan", "Tháng", weight: 1f),
-            Theme.Col("SoHoaDon", "Số HĐ", weight: 1f, right: true),
-            Theme.Col("DoanhThu", "Doanh thu", weight: 1.5f, format: "N0", right: true),
-            Theme.Col("LoiNhuan", "LN ước tính*", weight: 1.5f, format: "N0", right: true)
-        );
+        var monthColumn = Theme.Col("Nhan", "Tháng", weight: 1f);
+        var invoiceCountColumn = Theme.Col("SoHoaDon", "Số HĐ", weight: 1f, right: true);
+        var monthlyRevenueColumn = Theme.Col("DoanhThu", "Doanh thu", weight: 1.5f, format: "N0", right: true);
+        var estimatedProfitColumn = Theme.Col("LoiNhuan", "LN ước tính*", weight: 1.5f, format: "N0", right: true);
+        monthColumn.MinimumWidth = 60;
+        invoiceCountColumn.MinimumWidth = 70;
+        monthlyRevenueColumn.MinimumWidth = 125;
+        estimatedProfitColumn.MinimumWidth = 135;
+        _gridDoanhThu.Columns.AddRange(monthColumn, invoiceCountColumn, monthlyRevenueColumn, estimatedProfitColumn);
+        _gridDoanhThu.ColumnHeadersDefaultCellStyle.WrapMode = DataGridViewTriState.True;
 
         var btnExcel = Theme.PrimaryButton("Xuất Excel", 120, (_, _) => XuatExcel());
         var btnPdf = Theme.DangerButton("Xuất PDF", 120, (_, _) => XuatPdf());
@@ -78,8 +94,10 @@ public class ucThongKe : PageBase
         AddRow(Toolbar(pnlL, btnExcel, btnPdf));
 
         var topPanel = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1 };
-        topPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 48));
-        topPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 52));
+        var chartColumn = new ColumnStyle(SizeType.Percent, 44);
+        var topGridColumn = new ColumnStyle(SizeType.Percent, 56);
+        topPanel.ColumnStyles.Add(chartColumn);
+        topPanel.ColumnStyles.Add(topGridColumn);
         
         var pnlChart = Theme.CardPanel(); pnlChart.Dock = DockStyle.Fill;
         pnlChart.Controls.Add(_plot);
@@ -92,6 +110,11 @@ public class ucThongKe : PageBase
 
         topPanel.Controls.Add(pnlChart, 0, 0);
         topPanel.Controls.Add(pnlGridTop, 1, 0);
+        topPanel.SizeChanged += (_, _) =>
+        {
+            chartColumn.Width = topPanel.ClientSize.Width < 900 ? 44 : 48;
+            topGridColumn.Width = topPanel.ClientSize.Width < 900 ? 56 : 52;
+        };
         
         AddRow(topPanel, fill: true);
 
@@ -140,7 +163,7 @@ public class ucThongKe : PageBase
             _plot.Plot.Axes.Bottom.SetTicks(positions, labels);
 
             _plot.Plot.ShowLegend(ScottPlot.Alignment.UpperRight);
-            _plot.Plot.Title($"Doanh thu thuần & LN ước tính* năm {nam}");
+            _plot.Plot.Title($"Doanh thu & LN ước tính • {nam}");
             _plot.Plot.YLabel("Số tiền (Triệu ₫)");
             
             _plot.Refresh();

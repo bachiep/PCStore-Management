@@ -32,7 +32,7 @@ public static class ScreenshotService
         main.Show();
         Pump(400);
         var captureScreen = Screen.FromControl(main);
-        Console.WriteLine($"Capture display={captureScreen.DeviceName}; dpi={main.DeviceDpi}; bounds={captureScreen.Bounds.Width}x{captureScreen.Bounds.Height}; client={main.ClientSize.Width}x{main.ClientSize.Height}");
+        LogCapture(outputDir, $"Capture display={captureScreen.DeviceName}; dpi={main.DeviceDpi}; bounds={captureScreen.Bounds.Width}x{captureScreen.Bounds.Height}; client={main.ClientSize.Width}x{main.ClientSize.Height}");
         foreach (var item in PageRegistry.Items.Where(item => !item.AdminOnly || Session.IsAdmin))
         {
             main.Navigate(item.Key);
@@ -42,11 +42,12 @@ public static class ScreenshotService
                 bh.AddSampleItemsForDemo();
                 Pump(400);
             }
+            EnsureMainCapture(main, item.Key, outputDir);
             using var bmp = new Bitmap(main.Width, main.Height);
             main.DrawToBitmap(bmp, new Rectangle(0, 0, main.Width, main.Height));
             var path = Path.Combine(outputDir, item.Key + ".png");
             bmp.Save(path, ImageFormat.Png);
-            Console.WriteLine("Saved " + path);
+            LogCapture(outputDir, $"Saved {path}; window={main.WindowState}; size={main.Size.Width}x{main.Size.Height}; client={main.ClientSize.Width}x{main.ClientSize.Height}; dpi={main.DeviceDpi}");
 
             if (item.Key == "nhanvien" && Session.IsAdmin && main.ContentHost.Controls.Count > 0)
             {
@@ -71,7 +72,7 @@ public static class ScreenshotService
                     main.DrawToBitmap(cardView, new Rectangle(0, 0, main.Width, main.Height));
                     var cardsPath = Path.Combine(outputDir, "banhang_cards.png");
                     cardView.Save(cardsPath, ImageFormat.Png);
-                    Console.WriteLine("Saved " + cardsPath);
+                    LogCapture(outputDir, $"Saved {cardsPath}; window={main.WindowState}; size={main.Size.Width}x{main.Size.Height}; client={main.ClientSize.Width}x{main.ClientSize.Height}; dpi={main.DeviceDpi}");
                 }
             }
         }
@@ -145,7 +146,29 @@ public static class ScreenshotService
     }
 
     private static void SaveMainScreenshot(Form form, string outputDir, string fileName)
-        => SaveFormScreenshot(form, outputDir, fileName);
+    {
+        EnsureMainCapture(form, fileName, outputDir);
+        SaveFormScreenshot(form, outputDir, fileName);
+    }
+
+    private static void EnsureMainCapture(Form form, string page, string outputDir)
+    {
+        if (form.WindowState == FormWindowState.Minimized)
+        {
+            form.WindowState = FormWindowState.Normal;
+            form.Show();
+            form.BringToFront();
+            form.PerformLayout();
+            Pump(250);
+        }
+
+        if (!form.Visible || form.Width < 800 || form.Height < 600 ||
+            form.ClientSize.Width < 760 || form.ClientSize.Height < 560)
+            throw new InvalidOperationException(
+                $"Không thể chụp trang '{page}': cửa sổ đang ẩn/thu nhỏ hoặc quá nhỏ ({form.WindowState}, {form.Size.Width}x{form.Size.Height}, client {form.ClientSize.Width}x{form.ClientSize.Height}).");
+
+        LogCapture(outputDir, $"Capture page={page}; window={form.WindowState}; visible={form.Visible}; size={form.Size.Width}x{form.Size.Height}; client={form.ClientSize.Width}x{form.ClientSize.Height}; dpi={form.DeviceDpi}");
+    }
 
     private static void SaveFormScreenshot(Form form, string outputDir, string fileName)
     {
@@ -153,7 +176,14 @@ public static class ScreenshotService
         form.DrawToBitmap(bmp, new Rectangle(0, 0, form.Width, form.Height));
         var path = Path.Combine(outputDir, fileName);
         bmp.Save(path, ImageFormat.Png);
-        Console.WriteLine($"Saved {path}; formDpi={form.DeviceDpi}; size={form.ClientSize.Width}x{form.ClientSize.Height}");
+        LogCapture(outputDir, $"Saved {path}; formDpi={form.DeviceDpi}; size={form.ClientSize.Width}x{form.ClientSize.Height}");
+    }
+
+    private static void LogCapture(string outputDir, string message)
+    {
+        var line = $"{DateTimeOffset.Now:O} {message}";
+        File.AppendAllText(Path.Combine(outputDir, "capture.log"), line + Environment.NewLine, System.Text.Encoding.UTF8);
+        Console.WriteLine(line);
     }
 
     private static Size? ParseCaptureSize(string? value)

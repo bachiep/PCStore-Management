@@ -55,7 +55,7 @@ public class ucBanHang : PageBase
     };
     private readonly Label _lblTotalTitle = new()
     {
-        Text = "KHÁCH CẦN TRẢ:",
+        Text = "CẦN TRẢ:",
         Font = new Font("Segoe UI", 10.5f, FontStyle.Bold),
         ForeColor = ColorTranslator.FromHtml("#64748B"),
         AutoSize = true,
@@ -125,7 +125,9 @@ public class ucBanHang : PageBase
             "Phím tắt & Hướng dẫn Bán hàng (POS)");
 
         var topSearchRow = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 36, WrapContents = false, AutoSize = false };
-        topSearchRow.Controls.Add(Theme.SearchField(_txtSearchSP, "Tìm tên/mã SP • máy quét cần nhập mã SP"));
+        var searchField = Theme.SearchField(_txtSearchSP, "Tìm tên/mã SP • máy quét cần nhập mã SP");
+        var searchWatermark = searchField.Controls.OfType<Label>().FirstOrDefault(label => label.Text.StartsWith("Tìm tên/mã SP", StringComparison.Ordinal));
+        topSearchRow.Controls.Add(searchField);
         topSearchRow.Controls.Add(_btnToggleView);
         topSearchRow.Controls.Add(infoHotkeys);
 
@@ -218,9 +220,17 @@ public class ucBanHang : PageBase
         var productNameColumn = Theme.Col("TenSP", "Tên linh kiện", weight: 5.2f);
         var stockColumn = Theme.Col("SoLuongTon", "Tồn", weight: 0.45f, right: true);
         var priceColumn = Theme.Col("GiaBan", "Đơn giá", weight: 0.8f, format: "N0", right: true);
-        productIdColumn.MinimumWidth = 42;
-        stockColumn.MinimumWidth = 54;
-        priceColumn.MinimumWidth = 94;
+        productIdColumn.MinimumWidth = 38;
+        productNameColumn.MinimumWidth = 150;
+        productNameColumn.DefaultCellStyle.WrapMode = DataGridViewTriState.True;
+        stockColumn.MinimumWidth = 50;
+        priceColumn.MinimumWidth = 100;
+        _gridProducts.RowTemplate.Height = 38;
+        _gridProducts.AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.AllCells;
+        // Use a stable themed header height; wrapped headers can collapse at 120% DPI when auto-sized.
+        _gridProducts.ColumnHeadersHeight = 48;
+        _gridProducts.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
+        _gridProducts.ColumnHeadersDefaultCellStyle.WrapMode = DataGridViewTriState.True;
         _gridProducts.Columns.AddRange(productIdColumn, productNameColumn, stockColumn, priceColumn);
         _gridProducts.CellFormatting += (_, e) =>
         {
@@ -279,7 +289,7 @@ public class ucBanHang : PageBase
             BackColor = Color.White
         };
         rightPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
-        rightPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 118f)); // Row 0: Khách hàng (F4)
+        rightPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 112f)); // Row 0: Khách hàng (F4)
         rightPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));   // Row 1: Giỏ hàng
         rightPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 276f)); // Row 2: Thanh toán
 
@@ -409,8 +419,10 @@ public class ucBanHang : PageBase
         pnlCartHeader.Controls.Add(btnClearCart);
 
         _grid.AutoGenerateColumns = false;
-        _grid.RowTemplate.Height = 34;
+        _grid.RowTemplate.Height = 38;
         _grid.ColumnHeadersHeight = 34;
+        _grid.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
+        _grid.AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.AllCells;
         _grid.GridColor = ColorTranslator.FromHtml("#E2E8F0");
         _grid.ColumnHeadersDefaultCellStyle.Padding = new Padding(2, 0, 2, 0);
         _grid.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 9f, FontStyle.Bold);
@@ -423,14 +435,17 @@ public class ucBanHang : PageBase
             DataPropertyName = "TenSP",
             HeaderText = "Sản phẩm",
             AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill,
-            FillWeight = 100f
+            FillWeight = 100f,
+            MinimumWidth = 132
         };
+        colTen.DefaultCellStyle.WrapMode = DataGridViewTriState.True;
 
         var colDonGia = new DataGridViewTextBoxColumn
         {
             DataPropertyName = "DonGia",
             HeaderText = "Đơn giá",
-            Width = 92,
+            Width = 82,
+            MinimumWidth = 82,
             AutoSizeMode = DataGridViewAutoSizeColumnMode.None
         };
         colDonGia.DefaultCellStyle.Format = "N0";
@@ -441,7 +456,8 @@ public class ucBanHang : PageBase
         {
             DataPropertyName = "SoLuong",
             HeaderText = "SL",
-            Width = 46,
+            Width = 38,
+            MinimumWidth = 38,
             AutoSizeMode = DataGridViewAutoSizeColumnMode.None
         };
         colSL.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
@@ -451,7 +467,8 @@ public class ucBanHang : PageBase
         {
             DataPropertyName = "ThanhTien",
             HeaderText = "Thành tiền",
-            Width = 98,
+            Width = 96,
+            MinimumWidth = 96,
             AutoSizeMode = DataGridViewAutoSizeColumnMode.None
         };
         colThanhTien.DefaultCellStyle.Format = "N0";
@@ -464,7 +481,7 @@ public class ucBanHang : PageBase
             HeaderText = "",
             Text = "✕",
             UseColumnTextForButtonValue = true,
-            Width = 26,
+            Width = 24,
             AutoSizeMode = DataGridViewAutoSizeColumnMode.None,
             FlatStyle = FlatStyle.Flat
         };
@@ -473,6 +490,7 @@ public class ucBanHang : PageBase
         colDelete.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
 
         _grid.Columns.AddRange(colTen, colDonGia, colSL, colThanhTien, colDelete);
+        _grid.ColumnHeadersDefaultCellStyle.WrapMode = DataGridViewTriState.True;
 
         _grid.DataSource = _items;
         Theme.EmptyHint(_grid, "Giỏ hàng trống. Chọn sản phẩm bên trái.");
@@ -582,12 +600,12 @@ public class ucBanHang : PageBase
             Margin = new Padding(0),
             BackColor = Color.Transparent
         };
-        tblPayInfo.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 125f));
+        tblPayInfo.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 118f));
         tblPayInfo.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+        tblPayInfo.RowStyles.Add(new RowStyle(SizeType.Absolute, 24f));
         tblPayInfo.RowStyles.Add(new RowStyle(SizeType.Absolute, 28f));
-        tblPayInfo.RowStyles.Add(new RowStyle(SizeType.Absolute, 34f));
-        tblPayInfo.RowStyles.Add(new RowStyle(SizeType.Absolute, 34f));
-        tblPayInfo.RowStyles.Add(new RowStyle(SizeType.Absolute, 34f));
+        tblPayInfo.RowStyles.Add(new RowStyle(SizeType.Absolute, 28f));
+        tblPayInfo.RowStyles.Add(new RowStyle(SizeType.Absolute, 28f));
 
         var l1 = new Label { Text = "Tổng tiền hàng:", Font = new Font("Segoe UI", 9.5f), ForeColor = ColorTranslator.FromHtml("#64748B"), AutoSize = false, Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, BackColor = Color.Transparent };
         var l2 = new Label { Text = "Giảm giá:", Font = new Font("Segoe UI", 9.5f), ForeColor = ColorTranslator.FromHtml("#64748B"), AutoSize = false, Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, BackColor = Color.Transparent };
@@ -622,7 +640,7 @@ public class ucBanHang : PageBase
         _pnlTotalHero.Dock = DockStyle.Fill;
         _pnlTotalHero.Margin = new Padding(0, 0, 0, 6);
         _lblTotalTitle.AutoSize = false;
-        _lblTotalTitle.Width = 145;
+        _lblTotalTitle.Width = 128;
         _lblTotalTitle.Dock = DockStyle.Left;
         _lblTotalTitle.TextAlign = ContentAlignment.MiddleLeft;
         _lblTotalTitle.Font = new Font("Segoe UI", 9.5f, FontStyle.Bold);
@@ -683,9 +701,9 @@ public class ucBanHang : PageBase
             BackColor = Color.Transparent
         };
         tblCheckoutLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
-        tblCheckoutLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 150f)); // pnlPayFieldsCard
-        tblCheckoutLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 52f));  // _pnlTotalHero
-        tblCheckoutLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 46f));  // pnlActions
+        tblCheckoutLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 128f)); // pnlPayFieldsCard
+        tblCheckoutLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 46f));  // _pnlTotalHero
+        tblCheckoutLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 42f));  // pnlActions
 
         tblCheckoutLayout.Controls.Add(pnlPayFieldsCard, 0, 0);
         tblCheckoutLayout.Controls.Add(_pnlTotalHero, 0, 1);
@@ -703,12 +721,77 @@ public class ucBanHang : PageBase
         // ==========================================
         var mainLayout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1, Margin = new Padding(0) };
         mainLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
-        mainLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 460f));
+        var rightPanelColumn = new ColumnStyle(SizeType.Absolute, 420f);
+        mainLayout.ColumnStyles.Add(rightPanelColumn);
         mainLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
         mainLayout.Controls.Add(leftPanel, 0, 0);
         mainLayout.Controls.Add(rightPanel, 1, 0);
 
         AddRow(mainLayout, fill: true);
+
+        void ApplyResponsiveLayout()
+        {
+            var compact = mainLayout.ClientSize.Width < 940 || mainLayout.ClientSize.Height < 660;
+            rightPanelColumn.Width = compact ? 420f : 460f;
+            rightPanel.RowStyles[0].Height = 118f;
+            rightPanel.RowStyles[2].Height = compact ? 238f : 276f;
+            tblCheckoutLayout.RowStyles[0].Height = compact ? 128f : 150f;
+            tblCheckoutLayout.RowStyles[1].Height = compact ? 46f : 52f;
+            tblCheckoutLayout.RowStyles[2].Height = compact ? 42f : 46f;
+            tblPayInfo.ColumnStyles[0].Width = compact ? 112f : 125f;
+            tblPayInfo.RowStyles[0].Height = compact ? 24f : 28f;
+            tblPayInfo.RowStyles[1].Height = compact ? 28f : 34f;
+            tblPayInfo.RowStyles[2].Height = compact ? 28f : 34f;
+            tblPayInfo.RowStyles[3].Height = compact ? 28f : 34f;
+
+            productIdColumn.MinimumWidth = compact ? 38 : 42;
+            productNameColumn.MinimumWidth = compact ? 150 : 170;
+            stockColumn.MinimumWidth = compact ? 50 : 54;
+            priceColumn.MinimumWidth = compact ? 100 : 108;
+            _grid.RowTemplate.Height = compact ? 38 : 40;
+            foreach (DataGridViewRow row in _grid.Rows)
+                if (!row.IsNewRow) row.Height = compact ? 38 : 40;
+            colTen.MinimumWidth = compact ? 132 : 150;
+            colDonGia.Width = compact ? 82 : 92;
+            colSL.Width = compact ? 38 : 46;
+            colThanhTien.Width = compact ? 96 : 98;
+            colDelete.Width = compact ? 24 : 26;
+            _btnHoldOrder.Width = compact ? 124 : 135;
+            _btnHoldOrder.Height = compact ? 40 : 44;
+            var holdFontSize = compact ? 8.5f : 9.5f;
+            if (_btnHoldOrder.Font.Size != holdFontSize)
+            {
+                var previousFont = _btnHoldOrder.Font;
+                _btnHoldOrder.Font = new Font("Segoe UI", holdFontSize, FontStyle.Bold);
+                previousFont.Dispose();
+            }
+            _lblTotalTitle.Width = compact ? 90 : 100;
+            var amountFontSize = compact ? 16f : 18f;
+            if (_lblThanhToan.Font.Size != amountFontSize)
+            {
+                var previousFont = _lblThanhToan.Font;
+                _lblThanhToan.Font = new Font("Segoe UI", amountFontSize, FontStyle.Bold);
+                previousFont.Dispose();
+            }
+
+            if (searchWatermark != null)
+            {
+                searchWatermark.Text = compact ? "Tìm sản phẩm hoặc mã" : "Tìm tên/mã SP • máy quét cần nhập mã SP";
+                searchWatermark.AutoSize = false;
+                searchWatermark.Height = 18;
+                searchWatermark.Width = Math.Max(40, searchField.ClientSize.Width - searchWatermark.Left - 6);
+                searchWatermark.AutoEllipsis = true;
+            }
+
+            searchField.Width = Math.Max(150, topSearchRow.ClientSize.Width - _btnToggleView.Width - infoHotkeys.Width
+                - searchField.Margin.Horizontal - _btnToggleView.Margin.Horizontal - infoHotkeys.Margin.Horizontal);
+            if (searchWatermark != null)
+                searchWatermark.Width = Math.Max(40, searchField.ClientSize.Width - searchWatermark.Left - 6);
+        }
+
+        mainLayout.SizeChanged += (_, _) => ApplyResponsiveLayout();
+        SizeChanged += (_, _) => ApplyResponsiveLayout();
+        ApplyResponsiveLayout();
 
         // Event hooks
         Debounce(_txtSearchSP, ReloadProducts);
