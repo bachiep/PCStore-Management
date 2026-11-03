@@ -51,7 +51,7 @@
 | **Xuất hóa đơn** | `QuestPDF` | Thiết kế và xuất hóa đơn bán lẻ dạng PDF |
 | **Biểu đồ thống kê** | `ScottPlot.WinForms` | Vẽ biểu đồ doanh thu tương tác cao |
 | **Xuất báo cáo** | `ClosedXML` | Xuất bảng dữ liệu và báo cáo ra file Excel (.xlsx) |
-| **Kiểm thử tự động** | `xUnit` | Bộ 99 ca kiểm thử xUnit cho nghiệp vụ và tích hợp CSDL |
+| **Kiểm thử tự động** | `xUnit` | Bộ 100 ca kiểm thử xUnit cho nghiệp vụ và tích hợp CSDL |
 
 ---
 
@@ -68,7 +68,7 @@ ComputerStore.sln
 │   ├── Forms/               # Các Form chức năng và Dialogs
 │   ├── Pages/               # Các UserControl màn hình chính (ucBanHang, ucNhapKho, ucDashboard...)
 │   └── Services/            # Dịch vụ xuất file, in ấn và tiện ích hỗ trợ
-├── ComputerStore.Tests/     # Bộ kiểm thử xUnit (99 ca logic và tích hợp)
+├── ComputerStore.Tests/     # Bộ kiểm thử xUnit (100 ca logic và tích hợp)
 └── Database/                # Scripts cài mới, dữ liệu mẫu và migration
     ├── 01_CreateDatabase.sql
     ├── 02_StoredProcedures.sql
@@ -176,7 +176,7 @@ Remove-Item Env:COMPUTERSTORE_CONNECTION -ErrorAction SilentlyContinue
 Remove-Item Env:COMPUTERSTORE_TEST_CONNECTION -ErrorAction SilentlyContinue
 ```
 
-Các test báo lỗi nếu thiếu biến kết nối hoặc không mở được database, tránh báo pass khi chưa thực sự chạy. Lần kiểm tra gần nhất tại môi trường phát triển: **99 đạt, 0 lỗi, 0 bỏ qua** trên database kiểm thử tách biệt. Suite có ca chạy lại migration 04/05/07 trên schema mô phỏng bản cũ và đối chiếu dữ liệu trước/sau.
+Các test báo lỗi nếu thiếu biến kết nối hoặc không mở được database, tránh báo pass khi chưa thực sự chạy. Lần kiểm tra gần nhất tại môi trường phát triển: **100 đạt, 0 lỗi, 0 bỏ qua** trên database kiểm thử tách biệt. Suite có ca chạy lại migration 04/05/07 trên schema mô phỏng bản cũ và đối chiếu dữ liệu trước/sau.
 
 ---
 
