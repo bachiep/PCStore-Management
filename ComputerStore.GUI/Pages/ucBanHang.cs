@@ -226,7 +226,7 @@ public class ucBanHang : PageBase
         stockColumn.MinimumWidth = 50;
         priceColumn.MinimumWidth = 100;
         _gridProducts.RowTemplate.Height = 38;
-        _gridProducts.AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.AllCells;
+        _gridProducts.AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.DisplayedCellsExceptHeaders;
         // Use a stable themed header height; wrapped headers can collapse at 120% DPI when auto-sized.
         _gridProducts.ColumnHeadersHeight = 48;
         _gridProducts.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing;

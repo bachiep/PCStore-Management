@@ -31,6 +31,7 @@ public class ucNhanVien : PageBase
         employeeName.MinimumWidth = 145;
         var position = Theme.Col("ChucVu", "Chức vụ", weight: 1.5f);
         position.MinimumWidth = 130;
+        position.DefaultCellStyle.WrapMode = DataGridViewTriState.True;
         var workStatus = Theme.Col("TrangThaiText", "Trạng thái", "TrangThai", weight: 1.05f);
         workStatus.MinimumWidth = 96;
         _grid.Columns.AddRange(Theme.Col("MaNV", "Mã", weight: 0.45f), employeeName,
@@ -39,6 +40,7 @@ public class ucNhanVien : PageBase
         {
             if (_grid.Columns[e.ColumnIndex].Name == "TrangThaiText" && e.Value is bool b) { e.Value = b ? "Đang làm" : "Đã nghỉ"; e.FormattingApplied = true; }
         };
+        _grid.AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.DisplayedCellsExceptHeaders;
         _grid.SelectionChanged += (_, _) => ShowSelected();
         _search.Name = "txtTimNhanVien";
         Debounce(_search, LoadList);

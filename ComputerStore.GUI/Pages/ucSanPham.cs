@@ -247,7 +247,7 @@ public class ucSanPham : PageBase
         }
         else if (Services.ProductImage.IsCategoryFallback(_imageName, _imageCategory, _ten.Text))
         {
-            _imageNote.Text = "Ảnh tham khảo";
+            _imageNote.Text = "Ảnh đại diện";
             _imageNote.ForeColor = ColorTranslator.FromHtml("#92400E");
             _imageNote.BackColor = ColorTranslator.FromHtml("#FEF3C7");
             _imageTip.SetToolTip(_imageNote, "Ảnh minh họa theo danh mục, không đúng model SKU.");

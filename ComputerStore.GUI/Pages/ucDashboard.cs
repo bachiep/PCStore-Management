@@ -143,6 +143,10 @@ public class ucDashboard : PageBase
         table.SetColumnSpan(pnlRecent, 2);
 
         AddRow(_pnlCards);
+        var cardsRowIndex = Root.RowCount - 1;
+        // Pin the KPI row to the card group's actual height. AutoSize can
+        // otherwise reserve extra vertical space for a dock-filled child.
+        Root.RowStyles[cardsRowIndex] = new RowStyle(SizeType.Absolute, _pnlCards.Height);
         AddRow(table, fill: true);
 
         void ApplyResponsiveLayout()
@@ -156,6 +160,7 @@ public class ucDashboard : PageBase
                 _pnlCards.ColumnCount = compact ? 2 : 4;
                 _pnlCards.RowCount = compact ? 2 : 1;
                 _pnlCards.Height = compact ? 190 : 106;
+                Root.RowStyles[cardsRowIndex] = new RowStyle(SizeType.Absolute, _pnlCards.Height);
                 _pnlCards.ColumnStyles.Clear();
                 for (var i = 0; i < _pnlCards.ColumnCount; i++)
                     _pnlCards.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f / _pnlCards.ColumnCount));

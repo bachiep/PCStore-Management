@@ -36,7 +36,7 @@
 ### 5. Thiết kế UI/UX Modern Flat Design
 * **Không phụ thuộc thư viện UI nặng:** Toàn bộ các component (`ModernButton`, `ModernPanel`, `ProductCard`, `Theme.cs`) được tự lập trình bằng GDI+ hỗ trợ khử răng cưa (Anti-aliasing), hiệu ứng hover mượt mà và bo góc hiện đại.
 * **Bố cục co giãn:** Các trang sử dụng bố cục WinForms có thể thay đổi kích thước; việc nghiệm thu ở các độ phân giải và mức DPI cụ thể cần được thực hiện trên máy chạy ứng dụng.
-* **Ảnh sản phẩm:** 12 ảnh chụp thật theo danh mục, 7 ảnh đối chiếu đúng SKU và 2 ảnh tham khảo biến thể gần giống (được gắn nhãn cùng ghi rõ khác biệt). Các sản phẩm còn lại dùng ảnh tham khảo theo danh mục; quản trị viên có thể chọn ảnh riêng cho từng sản phẩm. Tác giả và giấy phép được ghi trong `ComputerStore.GUI/Resources/ProductImages/ATTRIBUTION.md`.
+* **Ảnh sản phẩm:** 12 ảnh chụp thật theo danh mục, 6 ảnh đã đối chiếu đúng SKU, 1 ảnh CPU Intel đại diện chưa xác minh đúng mẫu i5-12400F, và 2 ảnh tham khảo biến thể gần giống (được gắn nhãn cùng ghi rõ khác biệt). Các sản phẩm còn lại dùng ảnh đại diện theo danh mục; quản trị viên có thể chọn ảnh riêng cho từng sản phẩm. Tác giả và giấy phép được ghi trong `ComputerStore.GUI/Resources/ProductImages/ATTRIBUTION.md`.
 
 ---
 

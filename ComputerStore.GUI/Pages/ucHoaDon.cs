@@ -20,16 +20,35 @@ public class ucHoaDon : PageBase
         _denNgay.Value = DateTime.Today;
 
         _grid.AutoGenerateColumns = false;
+        var invoiceDate = Theme.Col("NgayLap", "Ngày lập", weight: 1.35f, format: "dd/MM/yy HH:mm");
+        invoiceDate.MinimumWidth = 120;
+        var customer = Theme.Col("TenKH", "Khách hàng", weight: 1.4f);
+        customer.MinimumWidth = 130;
+        customer.DefaultCellStyle.WrapMode = DataGridViewTriState.True;
+        var phone = Theme.Col("SDTKH", "SĐT", weight: 1f);
+        phone.MinimumWidth = 100;
+        var employee = Theme.Col("TenNV", "Nhân viên", weight: 1.3f);
+        employee.MinimumWidth = 125;
+        employee.DefaultCellStyle.WrapMode = DataGridViewTriState.True;
+        var paymentMethod = Theme.Col("HinhThucTT", "Hình thức TT", weight: 1.1f);
+        paymentMethod.MinimumWidth = 105;
+        paymentMethod.DefaultCellStyle.WrapMode = DataGridViewTriState.True;
+        var status = Theme.Col("TrangThaiText", "Trạng thái", weight: 0.9f);
+        status.MinimumWidth = 90;
+        status.DefaultCellStyle.WrapMode = DataGridViewTriState.True;
+        var payment = Theme.Col("ThanhToan", "Thanh toán", weight: 1f, format: "N0", right: true);
+        payment.MinimumWidth = 100;
         _grid.Columns.AddRange(
             Theme.Col("MaHD", "Mã HĐ", weight: 0.6f),
-            Theme.Col("NgayLap", "Ngày lập", weight: 1.35f, format: "dd/MM/yy HH:mm"),
-            Theme.Col("TenKH", "Khách hàng", weight: 1.4f),
-            Theme.Col("SDTKH", "SĐT", weight: 1f),
-            Theme.Col("TenNV", "Nhân viên", weight: 1.3f),
-            Theme.Col("HinhThucTT", "Hình thức TT", weight: 1.1f),
-            Theme.Col("TrangThaiText", "Trạng thái", weight: 0.9f),
-            Theme.Col("ThanhToan", "Thanh toán", weight: 1f, format: "N0", right: true)
+            invoiceDate,
+            customer,
+            phone,
+            employee,
+            paymentMethod,
+            status,
+            payment
         );
+        _grid.AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.DisplayedCellsExceptHeaders;
         _grid.CellFormatting += (_, e) =>
         {
             if (_grid.Rows[e.RowIndex].DataBoundItem is HoaDonDTO { DaHuy: true })

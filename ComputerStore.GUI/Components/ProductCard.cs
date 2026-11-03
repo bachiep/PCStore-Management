@@ -8,8 +8,10 @@ namespace ComputerStore.GUI.Components;
 public class ProductCard : ModernPanel
 {
     private readonly SanPhamDTO _product;
+    private readonly ToolTip _productNameTip = new();
     private Image? _image;
     private readonly bool _isReferenceImage;
+    private readonly bool _isCategoryFallback;
     private readonly bool _isIcon;
     private bool _isHovered;
 
@@ -27,13 +29,25 @@ public class ProductCard : ModernPanel
         BorderSize = 1;
         FillColor = Color.White;
 
+        AccessibleRole = AccessibleRole.ListItem;
+        AccessibleName = sp.TenSP;
+        AccessibleDescription = $"{sp.TenSP}. Giá bán: {Theme.Money(sp.GiaBan)}. Tồn kho: {sp.SoLuongTon} chiếc.";
+        _productNameTip.SetToolTip(this, sp.TenSP ?? "");
+        _productNameTip.ShowAlways = false;
         _isReferenceImage = Services.ProductImage.IsReferenceImage(sp.HinhAnh, sp.TenDM, sp.TenSP);
+        _isCategoryFallback = Services.ProductImage.IsCategoryFallback(sp.HinhAnh, sp.TenDM, sp.TenSP);
         _isIcon = Services.ProductImage.IsIcon(sp.HinhAnh);
         _image = Services.ProductImage.LoadForProduct(sp.HinhAnh, sp.TenDM, sp.TenSP);
 
         MouseEnter += (s, e) => { if (_product.TrangThai && _product.SoLuongTon > 0) { _isHovered = true; Invalidate(); } };
         MouseLeave += (s, e) => { _isHovered = false; Invalidate(); };
         MouseClick += (s, e) => { if (_product.TrangThai && _product.SoLuongTon > 0) ProductClicked?.Invoke(this, _product); };
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing) _productNameTip.Dispose();
+        base.Dispose(disposing);
     }
 
     private static string GetCategoryIcon(string? dm) => (dm ?? "").ToLowerInvariant() switch
@@ -86,7 +100,7 @@ public class ProductCard : ModernPanel
             var textColor = _isIcon ? "#5B21B6" : "#92400E";
             using var badgeBrush = new SolidBrush(ColorTranslator.FromHtml(badgeColor));
             g.FillRectangle(badgeBrush, imageBadgeRect);
-            var badgeText = _isIcon ? "Biểu tượng" : "Ảnh tham khảo";
+            var badgeText = _isIcon ? "Biểu tượng" : _isCategoryFallback ? "Ảnh đại diện" : "Ảnh tham khảo";
             TextRenderer.DrawText(g, badgeText, Theme.Small, imageBadgeRect,
                 ColorTranslator.FromHtml(textColor), TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
         }

@@ -45,36 +45,73 @@ public class ucBaoHanh : PageBase
         TrackChanges(_txtKetQua, _cboTrangThaiCapNhat);
 
         _grid.AutoGenerateColumns = false;
+        var ticketProduct = Theme.Col("TenSP", "Sản phẩm", weight: 2f);
+        ticketProduct.MinimumWidth = 140;
+        ticketProduct.DefaultCellStyle.WrapMode = DataGridViewTriState.True;
+        var ticketCustomer = Theme.Col("TenKH", "Khách hàng", weight: 1.8f);
+        ticketCustomer.MinimumWidth = 125;
+        ticketCustomer.DefaultCellStyle.WrapMode = DataGridViewTriState.True;
+        var ticketStatus = Theme.Col("TrangThai", "Trạng thái", weight: 1.1f);
+        ticketStatus.MinimumWidth = 100;
+        ticketStatus.DefaultCellStyle.WrapMode = DataGridViewTriState.True;
+        var ticketSerial = Theme.Col("Serial", "Serial", weight: 1.5f);
+        ticketSerial.MinimumWidth = 125;
+        var ticketDate = Theme.Col("NgayNhan", "Ngày nhận", weight: 0.8f, format: "dd/MM/yy");
+        ticketDate.MinimumWidth = 86;
         _grid.Columns.AddRange(
             Theme.Col("MaPBH", "Mã", weight: 0.4f),
-            Theme.Col("Serial", "Serial", weight: 1.5f),
-            Theme.Col("TenSP", "Sản phẩm", weight: 2f),
-            Theme.Col("TenKH", "Khách hàng", weight: 1.8f),
-            Theme.Col("NgayNhan", "Ngày nhận", weight: 0.8f, format: "dd/MM/yy"),
-            Theme.Col("TrangThai", "Trạng thái", weight: 1.1f)
+            ticketSerial,
+            ticketProduct,
+            ticketCustomer,
+            ticketDate,
+            ticketStatus
         );
+        _grid.AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.DisplayedCellsExceptHeaders;
         _grid.SelectionChanged += (_, _) => ShowSelected();
 
         _gridSales.AutoGenerateColumns = false;
+        var salesCustomer = Theme.Col("TenKH", "Khách hàng", weight: 1.4f);
+        salesCustomer.MinimumWidth = 125;
+        salesCustomer.DefaultCellStyle.WrapMode = DataGridViewTriState.True;
+        var salesStatus = Theme.Col("TrangThaiText", "Trạng thái", weight: 0.9f);
+        salesStatus.MinimumWidth = 100;
+        salesStatus.DefaultCellStyle.WrapMode = DataGridViewTriState.True;
+        var salesDate = Theme.Col("NgayBan", "Ngày bán", weight: 0.8f, format: "dd/MM/yyyy");
+        salesDate.MinimumWidth = 98;
+        var warrantyExpiry = Theme.Col("HanBH", "Hạn BH", weight: 0.8f, format: "dd/MM/yyyy");
+        warrantyExpiry.MinimumWidth = 98;
         _gridSales.Columns.AddRange(
             Theme.Col("MaHD", "Mã HĐ", weight: 0.55f),
-            Theme.Col("NgayBan", "Ngày bán", weight: 0.8f, format: "dd/MM/yyyy"),
-            Theme.Col("TenKH", "Khách hàng", weight: 1.4f),
+            salesDate,
+            salesCustomer,
             Theme.Col("DonGia", "Đơn giá", weight: 0.8f, format: "N0", right: true),
-            Theme.Col("HanBH", "Hạn BH", weight: 0.8f, format: "dd/MM/yyyy"),
-            Theme.Col("TrangThaiText", "Trạng thái", weight: 0.9f)
+            warrantyExpiry,
+            salesStatus
         );
+        _gridSales.AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.DisplayedCellsExceptHeaders;
 
         _gridWarrantyHistory.AutoGenerateColumns = false;
+        var historyDescription = Theme.Col("MoTaLoi", "Mô tả lỗi", weight: 1.5f);
+        historyDescription.DefaultCellStyle.WrapMode = DataGridViewTriState.True;
+        var historyResult = Theme.Col("KetQua", "Kết quả", weight: 1.5f);
+        historyResult.DefaultCellStyle.WrapMode = DataGridViewTriState.True;
+        var historyStatus = Theme.Col("TrangThai", "Trạng thái", weight: 1f);
+        historyStatus.MinimumWidth = 100;
+        historyStatus.DefaultCellStyle.WrapMode = DataGridViewTriState.True;
+        var historyReceived = Theme.Col("NgayNhan", "Ngày nhận", weight: 0.8f, format: "dd/MM/yyyy");
+        historyReceived.MinimumWidth = 98;
+        var historyReturned = Theme.Col("NgayTra", "Ngày trả", weight: 0.8f, format: "dd/MM/yyyy");
+        historyReturned.MinimumWidth = 98;
         _gridWarrantyHistory.Columns.AddRange(
             Theme.Col("MaPBH", "Mã phiếu", weight: 0.6f),
             Theme.Col("MaHDLucTiepNhan", "Mã HĐ", weight: 0.6f),
-            Theme.Col("NgayNhan", "Ngày nhận", weight: 0.8f, format: "dd/MM/yyyy"),
-            Theme.Col("MoTaLoi", "Mô tả lỗi", weight: 1.5f),
-            Theme.Col("KetQua", "Kết quả", weight: 1.5f),
-            Theme.Col("TrangThai", "Trạng thái", weight: 1f),
-            Theme.Col("NgayTra", "Ngày trả", weight: 0.8f, format: "dd/MM/yyyy")
+            historyReceived,
+            historyDescription,
+            historyResult,
+            historyStatus,
+            historyReturned
         );
+        _gridWarrantyHistory.AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.DisplayedCellsExceptHeaders;
 
         Debounce(_search, LoadPhieu);
         _cboTrangThaiLoc.SelectedIndexChanged += (_, _) => LoadPhieu();

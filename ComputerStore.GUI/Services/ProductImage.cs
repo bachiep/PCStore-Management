@@ -33,6 +33,9 @@ public static class ProductImage
         var skuPhoto = ResolveSkuPhotoFileName(productName);
         if (skuPhoto is not null && File.Exists(Path.Combine(Folder, skuPhoto))) return skuPhoto;
 
+        var representativePhoto = ResolveRepresentativePhotoFileName(productName);
+        if (representativePhoto is not null && File.Exists(Path.Combine(Folder, representativePhoto))) return representativePhoto;
+
         var referencePhoto = ResolveReferencePhotoFileName(productName);
         if (referencePhoto is not null && File.Exists(Path.Combine(Folder, referencePhoto))) return referencePhoto;
 
@@ -55,7 +58,10 @@ public static class ProductImage
     public static bool IsCategoryFallback(string? savedFileName, string? category, string? productName = null)
     {
         var fileName = ResolveFileName(savedFileName, category, productName);
-        return fileName is not null && IsCategoryPhoto(fileName) && File.Exists(Path.Combine(Folder, fileName));
+        var representativeIntelPhoto = string.Equals(
+            Path.GetFileName(fileName), "product_cpu_intel_i5.jpg", StringComparison.OrdinalIgnoreCase);
+        return fileName is not null && (IsCategoryPhoto(fileName) || representativeIntelPhoto) &&
+               File.Exists(Path.Combine(Folder, fileName));
     }
 
     public static bool IsSkuPhoto(string? savedFileName, string? category, string? productName)
@@ -101,13 +107,20 @@ public static class ProductImage
     private static string? ResolveSkuPhotoFileName(string? productName)
         => (productName ?? "").Trim().ToLowerInvariant() switch
         {
-            "intel core i5-12400f" => "product_cpu_intel_i5.jpg",
             "intel core i7-13700k" => "product_cpu_intel_i7.jpg",
             "amd ryzen 5 7600" => "product_cpu_amd_r5_7600.jpg",
             "amd ryzen 7 7800x3d" => "product_cpu_amd_r7_7800x3d.jpg",
             "deepcool ak400" => "sku_deepcool_ak400.jpg",
             "corsair vengeance 32gb ddr5 6000" => "sku_corsair_vengeance_32gb_ddr5.jpg",
             "logitech g pro x superlight 2" => "sku_logitech_gpro_x_superlight2.jpg",
+            _ => null
+        };
+
+    private static string? ResolveRepresentativePhotoFileName(string? productName)
+        => (productName ?? "").Trim().ToLowerInvariant() switch
+        {
+            // The source shows a generic Intel CPU, not a verified i5-12400F.
+            "intel core i5-12400f" => "product_cpu_intel_i5.jpg",
             _ => null
         };
 
