@@ -10,9 +10,16 @@ public static class ProductImage
         "product_monitor.jpg", "product_mouse.jpg", "product_psu.jpg", "product_ram.jpg", "product_ssd.jpg"
     };
 
+    private static readonly IReadOnlyDictionary<string, string> ReferencePhotoFiles =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["logitech g pro x tkl"] = "ref_logitech_gpro_tkl.jpg",
+            ["samsung 990 pro 1tb nvme"] = "ref_samsung_990_pro_4tb.jpg"
+        };
+
     public static string Folder => Path.Combine(AppContext.BaseDirectory, "Images");
 
-    /// <summary>Use a saved custom image, a known exact-SKU photo, then the category representative.</summary>
+    /// <summary>Use a saved custom image, an exact SKU photo, a labeled variant reference, then the category representative.</summary>
     public static string? ResolveFileName(string? savedFileName, string? category, string? productName = null)
     {
         // A photo explicitly selected for this product must always win over the demo SKU map.
@@ -25,6 +32,9 @@ public static class ProductImage
 
         var skuPhoto = ResolveSkuPhotoFileName(productName);
         if (skuPhoto is not null && File.Exists(Path.Combine(Folder, skuPhoto))) return skuPhoto;
+
+        var referencePhoto = ResolveReferencePhotoFileName(productName);
+        if (referencePhoto is not null && File.Exists(Path.Combine(Folder, referencePhoto))) return referencePhoto;
 
         var normalized = (category ?? "").Trim().ToLowerInvariant();
         if (normalized.Contains("cpu") || normalized.Contains("vi xử lý")) return "product_cpu.jpg";
@@ -58,6 +68,27 @@ public static class ProductImage
                !IsCategoryPhoto(mappedFileName);
     }
 
+    public static bool IsNamedReferencePhoto(string? savedFileName, string? category, string? productName)
+    {
+        var mappedFileName = ResolveReferencePhotoFileName(productName);
+        var resolvedFileName = ResolveFileName(savedFileName, category, productName);
+        return mappedFileName is not null &&
+               string.Equals(mappedFileName, resolvedFileName, StringComparison.OrdinalIgnoreCase) &&
+               File.Exists(Path.Combine(Folder, mappedFileName));
+    }
+
+    public static bool IsReferenceImage(string? savedFileName, string? category, string? productName)
+        => IsCategoryFallback(savedFileName, category, productName) ||
+           IsNamedReferencePhoto(savedFileName, category, productName);
+
+    public static string GetNamedReferenceDescription(string? productName)
+        => (productName ?? "").Trim().ToLowerInvariant() switch
+        {
+            "logitech g pro x tkl" => "Ảnh Logitech G PRO TKL dùng để tham khảo; biến thể X chưa được xác minh.",
+            "samsung 990 pro 1tb nvme" => "Ảnh Samsung 990 PRO 4TB dùng để tham khảo; khác dung lượng 1TB.",
+            _ => "Ảnh tham khảo của biến thể gần giống, không xác nhận chính xác SKU."
+        };
+
     public static bool IsIcon(string? fileName)
         => Path.GetFileName(fileName ?? "").StartsWith("icon_", StringComparison.OrdinalIgnoreCase);
 
@@ -79,6 +110,9 @@ public static class ProductImage
             "logitech g pro x superlight 2" => "sku_logitech_gpro_x_superlight2.jpg",
             _ => null
         };
+
+    private static string? ResolveReferencePhotoFileName(string? productName)
+        => ReferencePhotoFiles.TryGetValue((productName ?? "").Trim(), out var fileName) ? fileName : null;
 
     private static bool IsCategoryPhoto(string fileName)
         => CategoryPhotoFiles.Contains(Path.GetFileName(fileName));

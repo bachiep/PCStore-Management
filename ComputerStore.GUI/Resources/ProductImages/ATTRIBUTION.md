@@ -1,6 +1,6 @@
 # Product image credits
 
-These are real product/component photographs. Most are representative images by category; SKU-named photographs below are mapped to matching demo products. Other products may use category images unless a custom image is saved.
+These are real product/component photographs. Category photographs are representative. SKU-named photographs are mapped only to matching demo products. Named variant reference photographs are explicitly labeled in the UI and do not claim to show the exact SKU. Other products may use category images unless a custom image is saved.
 
 | Included file | Wikimedia Commons file / creator | License |
 |---|---|---|
@@ -23,5 +23,7 @@ These are real product/component photographs. Most are representative images by 
 | `sku_deepcool_ak400.jpg` | [DeepCool AK400 1.jpg](https://commons.wikimedia.org/wiki/File:DeepCool_AK400_1.jpg) — Qurren | CC BY-SA 4.0; unmodified copy |
 | `sku_corsair_vengeance_32gb_ddr5.jpg` | [2023 Pamięci Corsair Vengeance RGB.jpg](https://commons.wikimedia.org/wiki/File:2023_Pami%C4%99ci_Corsair_Vengeance_RGB.jpg) — Jacek Halicki | CC BY-SA 4.0; unmodified copy |
 | `sku_logitech_gpro_x_superlight2.jpg` | [Logitech Pro X Superlight 2 sample 20231216.jpg](https://commons.wikimedia.org/wiki/File:Logitech_Pro_X_Superlight_2_sample_20231216.jpg) — Solomon203 | CC BY-SA 4.0; unmodified copy |
+| `ref_logitech_gpro_tkl.jpg` | [Logitech G PRO TKL gaming keyboard - English (United States) layout.jpg](https://commons.wikimedia.org/wiki/File:Logitech_G_PRO_TKL_gaming_keyboard_-_English_(United_States)_layout.jpg) — AzureSaturn | CC0 1.0; unmodified copy; reference for G PRO X TKL, X variant not verified |
+| `ref_samsung_990_pro_4tb.jpg` | [SAMSUNG M.2 NVMe SSD 990 PRO 4TB.jpg](https://commons.wikimedia.org/wiki/File:SAMSUNG_M.2_NVMe_SSD_990_PRO_4TB.jpg) — Dinkun Chen | CC BY-SA 4.0; unmodified copy; reference for 990 PRO 1TB, capacity differs |
 
 The product image filenames are stable and are copied to the application's `Images` output folder at build/publish time. See each linked Commons page for the full license text and attribution terms.

@@ -9,7 +9,7 @@ public class ProductCard : ModernPanel
 {
     private readonly SanPhamDTO _product;
     private Image? _image;
-    private readonly bool _isCategoryFallback;
+    private readonly bool _isReferenceImage;
     private readonly bool _isIcon;
     private bool _isHovered;
 
@@ -27,7 +27,7 @@ public class ProductCard : ModernPanel
         BorderSize = 1;
         FillColor = Color.White;
 
-        _isCategoryFallback = Services.ProductImage.IsCategoryFallback(sp.HinhAnh, sp.TenDM, sp.TenSP);
+        _isReferenceImage = Services.ProductImage.IsReferenceImage(sp.HinhAnh, sp.TenDM, sp.TenSP);
         _isIcon = Services.ProductImage.IsIcon(sp.HinhAnh);
         _image = Services.ProductImage.LoadForProduct(sp.HinhAnh, sp.TenDM, sp.TenSP);
 
@@ -79,7 +79,7 @@ public class ProductCard : ModernPanel
             TextRenderer.DrawText(g, "Chưa có ảnh", Theme.Small, imgRect, Theme.Muted, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
         }
 
-        if (_isCategoryFallback || _isIcon)
+        if (_isReferenceImage || _isIcon)
         {
             var imageBadgeRect = new Rectangle(8, 94, Width - 16, 16);
             var badgeColor = _isIcon ? "#EDE9FE" : "#FEF3C7";

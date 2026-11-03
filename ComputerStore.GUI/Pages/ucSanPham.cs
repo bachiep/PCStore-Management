@@ -238,6 +238,13 @@ public class ucSanPham : PageBase
             _imageNote.BackColor = ColorTranslator.FromHtml("#EDE9FE");
             _imageTip.SetToolTip(_imageNote, "Biểu tượng minh họa, không phải ảnh sản phẩm.");
         }
+        else if (Services.ProductImage.IsNamedReferencePhoto(_imageName, _imageCategory, _ten.Text))
+        {
+            _imageNote.Text = "Ảnh tham khảo";
+            _imageNote.ForeColor = ColorTranslator.FromHtml("#92400E");
+            _imageNote.BackColor = ColorTranslator.FromHtml("#FEF3C7");
+            _imageTip.SetToolTip(_imageNote, Services.ProductImage.GetNamedReferenceDescription(_ten.Text));
+        }
         else if (Services.ProductImage.IsCategoryFallback(_imageName, _imageCategory, _ten.Text))
         {
             _imageNote.Text = "Ảnh tham khảo";

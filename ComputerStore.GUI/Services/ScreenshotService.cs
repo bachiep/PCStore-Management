@@ -31,6 +31,8 @@ public static class ScreenshotService
         };
         main.Show();
         Pump(400);
+        var captureScreen = Screen.FromControl(main);
+        Console.WriteLine($"Capture display={captureScreen.DeviceName}; dpi={main.DeviceDpi}; bounds={captureScreen.Bounds.Width}x{captureScreen.Bounds.Height}; client={main.ClientSize.Width}x{main.ClientSize.Height}");
         foreach (var item in PageRegistry.Items.Where(item => !item.AdminOnly || Session.IsAdmin))
         {
             main.Navigate(item.Key);
@@ -151,7 +153,7 @@ public static class ScreenshotService
         form.DrawToBitmap(bmp, new Rectangle(0, 0, form.Width, form.Height));
         var path = Path.Combine(outputDir, fileName);
         bmp.Save(path, ImageFormat.Png);
-        Console.WriteLine("Saved " + path);
+        Console.WriteLine($"Saved {path}; formDpi={form.DeviceDpi}; size={form.ClientSize.Width}x{form.ClientSize.Height}");
     }
 
     private static Size? ParseCaptureSize(string? value)
